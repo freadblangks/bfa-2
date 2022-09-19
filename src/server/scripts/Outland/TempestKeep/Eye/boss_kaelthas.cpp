@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -27,7 +27,6 @@ EndScriptData */
 #include "InstanceScript.h"
 #include "MotionMaster.h"
 #include "ObjectAccessor.h"
-#include "Player.h"
 #include "ScriptedCreature.h"
 #include "SpellInfo.h"
 #include "SpellScript.h"
@@ -86,7 +85,9 @@ enum Spells
     // Phase 4 spells
     SPELL_FIREBALL                              = 36805,
     SPELL_PYROBLAST                             = 36819,
-    SPELL_SUMMON_FLAME_STRIKE                   = 36735,
+    SPELL_FLAME_STRIKE                          = 36735,
+    SPELL_FLAME_STRIKE_VIS                      = 36730,
+    SPELL_FLAME_STRIKE_DMG                      = 36731,
     SPELL_ARCANE_DISRUPTION                     = 36834,
     SPELL_SHOCK_BARRIER                         = 36815,
     SPELL_PHOENIX_ANIMATION                     = 36723,
@@ -143,16 +144,6 @@ enum Spells
     SPELL_GRAVITY_LAPSE_TELE_CASTER_RIGHT2      = 35989,
     SPELL_GRAVITY_LAPSE_TELE_CASTER_BACK_RIGHT3 = 35990,
 
-    // Generic spells
-    SPELL_REMOVE_WEAPONS                        = 39497,
-    SPELL_REMOVE_WEAPONA                        = 39498,
-    SPELL_REMOVE_WEAPONB                        = 39499,
-    SPELL_REMOVE_WEAPONC                        = 39500,
-    SPELL_REMOVE_WEAPOND                        = 39501,
-    SPELL_REMOVE_WEAPONE                        = 39502,
-    SPELL_REMOVE_WEAPONF                        = 39503,
-    SPELL_REMOVE_WEAPONG                        = 39504,
-
     // Thaladred the Darkener spells
     SPELL_PSYCHIC_BLOW                          = 10689,
     SPELL_SILENCE                               = 30225,
@@ -172,11 +163,7 @@ enum Spells
     //Phoenix spell
     SPELL_BURN                                  = 36720,
     SPELL_EMBER_BLAST                           = 34341,
-    SPELL_REBIRTH                               = 41587,
-
-    // Flame Strike
-    SPELL_FLAME_STRIKE_DUMMY                    = 36730,
-    SPELL_FLAME_STRIKE_DAMAGE                   = 36731
+    SPELL_REBIRTH                               = 41587
 };
 
 enum Creatures
@@ -274,16 +261,10 @@ enum MovementPoints
     POINT_END_TRANSITION                 = 6
 };
 
-uint32 const SummonWeaponsSpells[] =
+uint32 m_auiSpellSummonWeapon[]=
 {
     SPELL_SUMMON_WEAPONA, SPELL_SUMMON_WEAPONB, SPELL_SUMMON_WEAPONC, SPELL_SUMMON_WEAPOND,
     SPELL_SUMMON_WEAPONE, SPELL_SUMMON_WEAPONF, SPELL_SUMMON_WEAPONG
-};
-
-uint32 const RemoveWeaponsSpells[] =
-{
-    SPELL_REMOVE_WEAPONA, SPELL_REMOVE_WEAPONB, SPELL_REMOVE_WEAPONC, SPELL_REMOVE_WEAPOND,
-    SPELL_REMOVE_WEAPONE, SPELL_REMOVE_WEAPONF, SPELL_REMOVE_WEAPONG
 };
 
 uint32 GravityLapseSpells[] =
@@ -331,433 +312,6 @@ Position const TransitionPos[6] =
     { 792.419f, -0.504778f, 50.0505f, 3.130386f }
 };
 
-struct boss_kaelthas : public BossAI
-{
-    boss_kaelthas(Creature* creature) : BossAI(creature, DATA_KAELTHAS)
-    {
-        Initialize();
-    }
-
-    void Initialize()
-    {
-        _advisorCounter = 0;
-        _pyrosCast = 0;
-        _netherbeamsCast = 0;
-        _phase = PHASE_NONE;
-        _scaleStage = 0;
-        _hasFullPower = false;
-    }
-
-    void Reset() override
-    {
-        Initialize();
-        DoAction(ACTION_PREPARE_ADVISORS);
-        me->RemoveUnitFlag(UNIT_FLAG_UNINTERACTIBLE);
-        me->SetEmoteState(EMOTE_ONESHOT_NONE);
-        me->SetDisableGravity(false);
-        me->SetTarget(ObjectGuid::Empty);
-        me->SetObjectScale(1.0f);
-        BossAI::Reset();
-    }
-
-    void JustReachedHome() override
-    {
-        BossAI::JustReachedHome();
-        DoCastSelf(SPELL_REMOVE_WEAPONS);
-
-        // Rebuild the surrounding environment.
-        if (GameObject* statue = instance->GetGameObject(DATA_KAEL_STATUE_LEFT))
-            statue->ResetDoorOrButton();
-
-        if (GameObject* statue = instance->GetGameObject(DATA_KAEL_STATUE_RIGHT))
-            statue->ResetDoorOrButton();
-
-        if (GameObject* window = instance->GetGameObject(DATA_TEMPEST_BRIDGE_WINDOW))
-            window->ResetDoorOrButton();
-    }
-
-    void DoAction(int32 action) override
-    {
-        switch (action)
-        {
-            case ACTION_START_ENCOUNTER:
-                Talk(SAY_INTRO);
-                me->SetUnitFlag(UNIT_FLAG_UNINTERACTIBLE);
-
-                _advisorGuid[ADVISOR_THALADRED] = instance->GetGuidData(DATA_THALADRED);
-                _advisorGuid[ADVISOR_SANGUINAR] = instance->GetGuidData(DATA_SANGUINAR);
-                _advisorGuid[ADVISOR_CAPERNIAN] = instance->GetGuidData(DATA_CAPERNIAN);
-                _advisorGuid[ADVISOR_TELONICUS] = instance->GetGuidData(DATA_TELONICUS);
-
-                _phase = PHASE_INTRO;
-                instance->SetBossState(DATA_KAELTHAS, IN_PROGRESS);
-                events.ScheduleEvent(EVENT_START_ENCOUNTER, 23s);
-                break;
-            case ACTION_PREPARE_ADVISORS:
-                for (uint8 i = 0; i < MAX_ADVISORS; ++i)
-                {
-                    if (Creature* creature = ObjectAccessor::GetCreature(*me, _advisorGuid[i]))
-                    {
-                        creature->Respawn(true);
-                        creature->SetUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
-                        creature->AI()->EnterEvadeMode();
-                    }
-                }
-                break;
-            case ACTION_ACTIVE_ADVISOR:
-                // They have already been active, so we are not handling new ones, just counting their death.
-                if (_phase == PHASE_REVIVED_ADVISORS)
-                    ++_advisorCounter;
-
-                switch (_advisorCounter)
-                {
-                    case ADVISOR_THALADRED:
-                        Talk(SAY_INTRO_THALADRED);
-                        events.ScheduleEvent(EVENT_ACTIVE_ADVISOR, 7s);
-                        break;
-                    case ADVISOR_SANGUINAR:
-                        Talk(SAY_INTRO_SANGUINAR);
-                        events.ScheduleEvent(EVENT_ACTIVE_ADVISOR, 12500ms);
-                        break;
-                    case ADVISOR_CAPERNIAN:
-                        Talk(SAY_INTRO_CAPERNIAN);
-                        events.ScheduleEvent(EVENT_ACTIVE_ADVISOR, 7s);
-                        break;
-                    case ADVISOR_TELONICUS:
-                        Talk(SAY_INTRO_TELONICUS);
-                        events.ScheduleEvent(EVENT_ACTIVE_ADVISOR, 8400ms);
-                        break;
-                    case MAX_DEFEATED_ADVISORS:
-                        // Every advisor defeated - Phase 2 starts.
-                        Talk(SAY_PHASE2_WEAPON);
-                        events.ScheduleEvent(EVENT_SUMMON_WEAPONS, 3500ms);
-                        break;
-                    case MAX_KILLED_ADVISORS:
-                        // Every advisor killed - Phase 3 starts.
-                        events.ScheduleEvent(EVENT_ENGAGE_COMBAT, 5s);
-                        break;
-                    default:
-                        break;
-                }
-                break;
-            case ACTION_SCHEDULE_COMBAT_EVENTS:
-                _phase = PHASE_COMBAT;
-                events.SetPhase(PHASE_COMBAT);
-                events.ScheduleEvent(EVENT_FIREBALL, 1s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                events.ScheduleEvent(EVENT_ARCANE_DISRUPTION, 45s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                events.ScheduleEvent(EVENT_FLAMESTRIKE, 30s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                events.ScheduleEvent(EVENT_MIND_CONTROL, 40s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                events.ScheduleEvent(EVENT_SUMMON_PHOENIX, 50s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                break;
-            default:
-                break;
-        }
-    }
-
-    void MoveInLineOfSight(Unit* who) override
-    {
-        if (_phase == PHASE_NONE && me->IsValidAttackTarget(who) && me->IsWithinDistInMap(who, 30.0f))
-        {
-            DoAction(ACTION_START_ENCOUNTER);
-            who->SetInCombatWith(me);
-            AddThreat(who, 0.0f);
-            me->SetTarget(who->GetGUID());
-        }
-    }
-
-    void DamageTaken(Unit* attacker, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo = nullptr*/) override
-    {
-        if (_phase == PHASE_NONE)
-        {
-            DoAction(ACTION_START_ENCOUNTER);
-
-            if (attacker)
-                me->SetTarget(attacker->GetGUID());
-        }
-
-        if (!_hasFullPower && me->HealthBelowPctDamaged(50, damage))
-        {
-            _hasFullPower = true;
-            me->AttackStop();
-            me->InterruptNonMeleeSpells(false);
-            events.CancelEventGroup(EVENT_GROUP_COMBAT);
-            events.CancelEventGroup(EVENT_GROUP_SPECIAL);
-            events.SetPhase(PHASE_TRANSITION);
-            me->SetReactState(REACT_PASSIVE);
-            me->GetMotionMaster()->MovePoint(POINT_START_TRANSITION, TransitionPos[0]);
-        }
-    }
-
-    void MovementInform(uint32 type, uint32 point) override
-    {
-        if (type != POINT_MOTION_TYPE)
-            return;
-
-        switch (point)
-        {
-            case POINT_START_TRANSITION:
-                events.ScheduleEvent(EVENT_TRANSITION_1, 1s);
-                break;
-            case POINT_TRANSITION_CENTER_ASCENDING:
-                me->SetFacingTo(float(M_PI));
-                Talk(SAY_PHASE5_NUTS);
-                me->SetUnitFlag(UNIT_FLAG_UNINTERACTIBLE);
-                me->SetDisableGravity(true);
-                //me->SetHover(true); -- Set in sniffs, but breaks his visual.
-                events.ScheduleEvent(EVENT_TRANSITION_2, 2s);
-                events.ScheduleEvent(EVENT_SIZE_INCREASE, 5s);
-                break;
-            case POINT_TRANSITION_HALFWAY_ASCENDING:
-                DoCast(me, SPELL_NETHER_BEAM_VISUAL3, true);
-                events.ScheduleEvent(EVENT_TRANSITION_3, 1s);
-                break;
-            case POINT_TRANSITION_TOP:
-                events.ScheduleEvent(EVENT_EXPLODE, 10s);
-                break;
-            case POINT_TRANSITION_HALFWAY_DESCENDING:
-                events.ScheduleEvent(EVENT_TRANSITION_5, 2s);
-                break;
-            case POINT_END_TRANSITION:
-                me->SetReactState(REACT_AGGRESSIVE);
-                me->InterruptNonMeleeSpells(false);
-                me->RemoveUnitFlag(UNIT_FLAG_UNINTERACTIBLE);
-                me->RemoveAurasDueToSpell(SPELL_FULLPOWER);
-
-                if (Unit* target = SelectTarget(SelectTargetMethod::MaxThreat, 0))
-                    AttackStart(target);
-
-                DoAction(ACTION_SCHEDULE_COMBAT_EVENTS);
-                events.ScheduleEvent(EVENT_GRAVITY_LAPSE, 10s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                break;
-            default:
-                break;
-        }
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        Talk(SAY_SLAY);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        // if not phoenix, then it's one of the 7 weapons
-        if (summoned->GetEntry() != NPC_PHOENIX)
-        {
-            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
-                summoned->AI()->AttackStart(target);
-
-            summons.Summon(summoned);
-        }
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        Talk(SAY_DEATH);
-        _JustDied();
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (_phase == PHASE_COMBAT)
-            if (!UpdateVictim())
-                return;
-
-        events.Update(diff);
-
-        // SPELL_KAEL_GAINING_POWER and SPELL_KAEL_STUNNED are channeling spells that need to be interrupted during his transition.
-        if (me->HasUnitState(UNIT_STATE_CASTING) && !me->FindCurrentSpellBySpellId(SPELL_KAEL_GAINING_POWER) && !me->FindCurrentSpellBySpellId(SPELL_KAEL_STUNNED))
-            return;
-
-        while (uint32 eventId = events.ExecuteEvent())
-        {
-            switch (eventId)
-            {
-                case EVENT_START_ENCOUNTER:
-                    me->SetUnitFlag(UNIT_FLAG_PACIFIED);
-                    DoAction(ACTION_ACTIVE_ADVISOR);
-                    break;
-                case EVENT_ACTIVE_ADVISOR:
-                    if (Creature* advisor = ObjectAccessor::GetCreature(*me, _advisorGuid[_advisorCounter]))
-                    {
-                        advisor->RemoveUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
-
-                        if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
-                            advisor->AI()->AttackStart(target);
-                    }
-                    ++_advisorCounter;
-                    break;
-                case EVENT_SUMMON_WEAPONS:
-                    DoCastSelf(SPELL_SUMMON_WEAPONS);
-                    events.ScheduleEvent(EVENT_REVIVE_ADVISORS, 120s);
-                    break;
-                case EVENT_REVIVE_ADVISORS:
-                    _phase = PHASE_REVIVED_ADVISORS;
-                    Talk(SAY_PHASE3_ADVANCE);
-                    DoCast(me, SPELL_RESSURECTION);
-                    break;
-                case EVENT_ENGAGE_COMBAT:
-                    Talk(SAY_PHASE4_INTRO2);
-
-                    // Sometimes people can collect Aggro in Phase 1-3. Reset threat before releasing Kael.
-                    ResetThreatList();
-
-                    me->RemoveUnitFlag(UNIT_FLAG_UNINTERACTIBLE | UNIT_FLAG_PACIFIED);
-
-                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
-                        AttackStart(target);
-
-                    DoAction(ACTION_SCHEDULE_COMBAT_EVENTS);
-                    events.ScheduleEvent(EVENT_PYROBLAST, 60s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                    break;
-                case EVENT_FIREBALL:
-                    DoCastVictim(SPELL_FIREBALL);
-                    events.ScheduleEvent(EVENT_FIREBALL, 2500ms, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                    break;
-                case EVENT_ARCANE_DISRUPTION:
-                    DoCastVictim(SPELL_ARCANE_DISRUPTION, true);
-                    events.ScheduleEvent(EVENT_ARCANE_DISRUPTION, 60s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                    break;
-                case EVENT_FLAMESTRIKE:
-                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
-                        DoCast(target, SPELL_SUMMON_FLAME_STRIKE);
-
-                    events.ScheduleEvent(EVENT_FLAMESTRIKE, 30s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                    break;
-                case EVENT_MIND_CONTROL:
-                    Talk(SAY_MIND_CONTROL);
-                    DoCastAOE(SPELL_MIND_CONTROL, { SPELLVALUE_MAX_TARGETS, 3 });
-                    events.ScheduleEvent(EVENT_MIND_CONTROL, 60s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                    break;
-                case EVENT_SUMMON_PHOENIX:
-                    DoCast(me, SPELL_PHOENIX_ANIMATION);
-                    Talk(SAY_SUMMON_PHOENIX);
-                    events.ScheduleEvent(EVENT_SUMMON_PHOENIX, 45s, 60s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                    break;
-                case EVENT_END_TRANSITION:
-                    me->SetEmoteState(EMOTE_ONESHOT_NONE);
-                    DoCast(SPELL_FULLPOWER);
-                    events.ScheduleEvent(EVENT_TRANSITION_4, 2s);
-                    break;
-                case EVENT_PYROBLAST:
-                    _pyrosCast = 0;
-                    Talk(EMOTE_PYROBLAST);
-                    DoCast(me, SPELL_SHOCK_BARRIER);
-                    events.DelayEvents(10s, EVENT_GROUP_COMBAT);
-                    events.ScheduleEvent(EVENT_PYROBLAST_CAST, 1s, EVENT_GROUP_SPECIAL, PHASE_COMBAT);
-                    break;
-                case EVENT_PYROBLAST_CAST:
-                    if (_pyrosCast < 3)
-                    {
-                        DoCastVictim(SPELL_PYROBLAST);
-                        events.ScheduleEvent(EVENT_PYROBLAST_CAST, 3s);
-                        _pyrosCast++;
-                    }
-                    else
-                        events.ScheduleEvent(EVENT_PYROBLAST, 60s, EVENT_GROUP_COMBAT, PHASE_COMBAT);
-                    break;
-                case EVENT_GRAVITY_LAPSE:
-                    Talk(SAY_GRAVITY_LAPSE);
-                    DoCastAOE(SPELL_GRAVITY_LAPSE);
-                    DoCast(me, SPELL_NETHER_VAPOR);
-                    events.DelayEvents(24s, EVENT_GROUP_COMBAT);
-                    events.ScheduleEvent(EVENT_NETHER_BEAM, 3s, EVENT_GROUP_SPECIAL, PHASE_COMBAT);
-                    events.ScheduleEvent(EVENT_SHOCK_BARRIER, 1s, EVENT_GROUP_SPECIAL, PHASE_COMBAT);
-                    events.ScheduleEvent(EVENT_GRAVITY_LAPSE, 30s, EVENT_GROUP_SPECIAL, PHASE_COMBAT);
-                    break;
-                case EVENT_NETHER_BEAM:
-                    if (_netherbeamsCast <= 8)
-                    {
-                        if (Unit* unit = SelectTarget(SelectTargetMethod::Random, 0))
-                            DoCast(unit, SPELL_NETHER_BEAM);
-
-                        _netherbeamsCast++;
-                        events.ScheduleEvent(EVENT_NETHER_BEAM, 3s);
-                    }
-                    else
-                        _netherbeamsCast = 0;
-                    break;
-                case EVENT_TRANSITION_1:
-                    me->GetMotionMaster()->MovePoint(POINT_TRANSITION_CENTER_ASCENDING, TransitionPos[1]);
-                    break;
-                case EVENT_TRANSITION_2:
-                    DoCast(me, SPELL_KAEL_GAINING_POWER);
-                    me->GetMotionMaster()->Clear();
-                    me->RemoveUnitMovementFlag(MOVEMENTFLAG_ROOT);
-                    me->GetMotionMaster()->MovePoint(POINT_TRANSITION_HALFWAY_ASCENDING, TransitionPos[2], false);
-                    break;
-                case EVENT_TRANSITION_3:
-                    me->GetMotionMaster()->MovePoint(POINT_TRANSITION_TOP, TransitionPos[3], false);
-                    break;
-                case EVENT_TRANSITION_4:
-                    me->GetMotionMaster()->MovePoint(POINT_TRANSITION_HALFWAY_DESCENDING, TransitionPos[4], false);
-                    break;
-                case EVENT_TRANSITION_5:
-                    me->GetMotionMaster()->MovePoint(POINT_END_TRANSITION, TransitionPos[5], false);
-                    break;
-                case EVENT_EXPLODE:
-                    me->InterruptNonMeleeSpells(false);
-                    me->RemoveAurasDueToSpell(SPELL_NETHER_BEAM_VISUAL3);
-                    DoCast(me, SPELL_KAEL_EXPLODES3, true);
-                    DoCast(me, SPELL_KAEL_STUNNED); // Core doesn't handle the emote properly while flying.
-                    me->SetEmoteState(EMOTE_STATE_DROWNED);
-
-                    // Destroy the surrounding environment.
-                    if (GameObject* statue = instance->GetGameObject(DATA_KAEL_STATUE_LEFT))
-                        statue->UseDoorOrButton();
-
-                    if (GameObject* statue = instance->GetGameObject(DATA_KAEL_STATUE_RIGHT))
-                        statue->UseDoorOrButton();
-
-                    if (GameObject* window = instance->GetGameObject(DATA_TEMPEST_BRIDGE_WINDOW))
-                        window->UseDoorOrButton();
-
-                    events.ScheduleEvent(EVENT_END_TRANSITION, 10s);
-                    break;
-                case EVENT_SIZE_INCREASE:
-                    switch (_scaleStage)
-                    {
-                        case 0:
-                            me->SetObjectScale(1.4f);
-                            events.ScheduleEvent(EVENT_SIZE_INCREASE, 5s);
-                            break;
-                        case 1:
-                            me->SetObjectScale(1.8f);
-                            events.ScheduleEvent(EVENT_SIZE_INCREASE, 3s);
-                            break;
-                        case 2:
-                            me->SetObjectScale(2.0f);
-                            events.ScheduleEvent(EVENT_SIZE_INCREASE, 1s);
-                            break;
-                        case 3:
-                            me->SetObjectScale(2.2f);
-                            break;
-                        default:
-                            break;
-                    }
-                    ++_scaleStage;
-                    break;
-                default:
-                    break;
-            }
-
-            if (me->HasUnitState(UNIT_STATE_CASTING) && !me->FindCurrentSpellBySpellId(SPELL_KAEL_GAINING_POWER) && !me->FindCurrentSpellBySpellId(SPELL_KAEL_STUNNED))
-                return;
-        }
-
-        if (events.IsInPhase(PHASE_COMBAT))
-            DoMeleeAttackIfReady();
-    }
-private:
-    uint8 _advisorCounter;
-    uint8 _phase;
-    uint8 _pyrosCast;
-    uint8 _scaleStage;
-    uint8 _netherbeamsCast;
-    bool _hasFullPower;
-    ObjectGuid _advisorGuid[MAX_ADVISORS];
-};
-
 struct advisorbase_ai : public ScriptedAI
 {
     advisorbase_ai(Creature* creature) : ScriptedAI(creature)
@@ -778,8 +332,8 @@ struct advisorbase_ai : public ScriptedAI
         Initialize();
 
         me->SetStandState(UNIT_STAND_STATE_STAND);
-        me->SetUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
-        me->RemoveUnitFlag(UNIT_FLAG_UNINTERACTIBLE | UNIT_FLAG_STUNNED);
+        me->AddUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
+        me->RemoveUnitFlag(UnitFlags(UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_STUNNED));
 
         //reset encounter
         if (instance->GetBossState(DATA_KAELTHAS) == IN_PROGRESS)
@@ -803,18 +357,18 @@ struct advisorbase_ai : public ScriptedAI
         ScriptedAI::AttackStart(who);
     }
 
-    void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
+    void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
     {
-        if (spellInfo->Id == SPELL_RESSURECTION)
+        if (spell->Id == SPELL_RESSURECTION)
         {
             _hasRessurrected = true;
-            me->RemoveUnitFlag(UNIT_FLAG_UNINTERACTIBLE | UNIT_FLAG_STUNNED);
+            me->RemoveUnitFlag(UnitFlags(UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_STUNNED));
             me->SetStandState(UNIT_STAND_STATE_STAND);
-            events.ScheduleEvent(EVENT_DELAYED_RESSURECTION, 2s);
+            events.ScheduleEvent(EVENT_DELAYED_RESSURECTION, 2000);
         }
     }
 
-    void DamageTaken(Unit* killer, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo = nullptr*/) override
+    void DamageTaken(Unit* killer, uint32 &damage) override
     {
         if (damage >= me->GetHealth() && !_inFakeDeath && !_hasRessurrected)
         {
@@ -825,11 +379,10 @@ struct advisorbase_ai : public ScriptedAI
             me->InterruptNonMeleeSpells(false);
             me->SetHealth(0);
             me->RemoveAllAurasOnDeath();
-            me->ModifyAuraState(AURA_STATE_WOUNDED_20_PERCENT, false);
-            me->ModifyAuraState(AURA_STATE_WOUNDED_25_PERCENT, false);
-            me->ModifyAuraState(AURA_STATE_WOUNDED_35_PERCENT, false);
-            me->ModifyAuraState(AURA_STATE_WOUND_HEALTH_20_80, false);
-            me->SetUnitFlag(UNIT_FLAG_UNINTERACTIBLE | UNIT_FLAG_STUNNED);
+            me->ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
+            me->ModifyAuraState(AURA_STATE_HEALTHLESS_25_PERCENT, false);
+            me->ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
+            me->AddUnitFlag(UnitFlags(UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_STUNNED));
             me->SetTarget(ObjectGuid::Empty);
             me->SetStandState(UNIT_STAND_STATE_DEAD);
             me->GetMotionMaster()->Clear();
@@ -858,11 +411,11 @@ struct advisorbase_ai : public ScriptedAI
                 if (!Target)
                     Target = me->GetVictim();
 
-                ResetThreatList();
+                DoResetThreat();
                 AttackStart(Target);
                 me->GetMotionMaster()->Clear();
                 me->GetMotionMaster()->MoveChase(Target);
-                AddThreat(Target, 0.0f);
+                me->AddThreat(Target, 0.0f);
             }
         }
     }
@@ -874,565 +427,1076 @@ struct advisorbase_ai : public ScriptedAI
         ObjectGuid DelayRes_Target;
 };
 
-struct boss_thaladred_the_darkener : public advisorbase_ai
+class boss_kaelthas : public CreatureScript
 {
-    boss_thaladred_the_darkener(Creature* creature) : advisorbase_ai(creature)
-    {
-        Initialize();
-    }
+    public:
 
-    void Initialize()
-    {
-        Gaze_Timer = 100;
-        Silence_Timer = 20000;
-        Rend_Timer = 4000;
-        PsychicBlow_Timer = 10000;
-    }
+        boss_kaelthas() : CreatureScript("boss_kaelthas") { }
 
-    uint32 Gaze_Timer;
-    uint32 Silence_Timer;
-    uint32 Rend_Timer;
-    uint32 PsychicBlow_Timer;
-
-    void Reset() override
-    {
-        Initialize();
-
-        advisorbase_ai::Reset();
-    }
-
-    void JustEngagedWith(Unit* who) override
-    {
-        Talk(SAY_THALADRED_AGGRO);
-        AddThreat(who, 5000000.0f);
-    }
-
-    void JustDied(Unit* killer) override
-    {
-        if (_hasRessurrected)
-            Talk(SAY_THALADRED_DEATH);
-
-        advisorbase_ai::JustDied(killer);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        advisorbase_ai::UpdateAI(diff);
-
-        if (!UpdateVictim() || _inFakeDeath)
-            return;
-
-        //Gaze_Timer
-        if (Gaze_Timer <= diff)
+        struct boss_kaelthasAI : public BossAI
         {
-            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
+            boss_kaelthasAI(Creature* creature) : BossAI(creature, DATA_KAELTHAS)
             {
-                ResetThreatList();
-                AddThreat(target, 5000000.0f);
-                Talk(EMOTE_THALADRED_GAZE, target);
-                Gaze_Timer = 8500;
+                Initialize();
             }
-        }
-        else
-            Gaze_Timer -= diff;
 
-        //Silence_Timer
-        if (Silence_Timer <= diff)
-        {
-            DoCastVictim(SPELL_SILENCE);
-            Silence_Timer = 20000;
-        }
-        else
-            Silence_Timer -= diff;
-
-        //Rend_Timer
-        if (Rend_Timer <= diff)
-        {
-            DoCastVictim(SPELL_REND);
-            Rend_Timer = 4000;
-        }
-        else
-            Rend_Timer -= diff;
-
-        //PsychicBlow_Timer
-        if (PsychicBlow_Timer <= diff)
-        {
-            DoCastVictim(SPELL_PSYCHIC_BLOW);
-            PsychicBlow_Timer = 20000 + rand32() % 5000;
-        }
-        else
-            PsychicBlow_Timer -= diff;
-
-        DoMeleeAttackIfReady();
-    }
-};
-
-struct boss_lord_sanguinar : public advisorbase_ai
-{
-    boss_lord_sanguinar(Creature* creature) : advisorbase_ai(creature)
-    {
-        Initialize();
-    }
-
-    void Initialize()
-    {
-        Fear_Timer = 20000;
-    }
-
-    uint32 Fear_Timer;
-
-    void Reset() override
-    {
-        Initialize();
-        advisorbase_ai::Reset();
-    }
-
-    void JustEngagedWith(Unit* /*who*/) override
-    {
-        Talk(SAY_SANGUINAR_AGGRO);
-    }
-
-    void JustDied(Unit* killer) override
-    {
-        if (_hasRessurrected)
-            Talk(SAY_SANGUINAR_DEATH);
-
-        advisorbase_ai::JustDied(killer);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        advisorbase_ai::UpdateAI(diff);
-
-        if (!UpdateVictim() || _inFakeDeath)
-            return;
-
-        //Fear_Timer
-        if (Fear_Timer <= diff)
-        {
-            DoCastVictim(SPELL_BELLOWING_ROAR);
-            Fear_Timer = 25000 + rand32() % 10000;                //approximately every 30 seconds
-        }
-        else
-            Fear_Timer -= diff;
-
-        DoMeleeAttackIfReady();
-    }
-};
-
-struct boss_grand_astromancer_capernian : public advisorbase_ai
-{
-    boss_grand_astromancer_capernian(Creature* creature) : advisorbase_ai(creature)
-    {
-        Initialize();
-    }
-
-    void Initialize()
-    {
-        Fireball_Timer = 2000;
-        Conflagration_Timer = 20000;
-        ArcaneExplosion_Timer = 5000;
-        Yell_Timer = 2000;
-        Yell = false;
-    }
-
-    uint32 Fireball_Timer;
-    uint32 Conflagration_Timer;
-    uint32 ArcaneExplosion_Timer;
-    uint32 Yell_Timer;
-    bool Yell;
-
-    void Reset() override
-    {
-        Initialize();
-
-        advisorbase_ai::Reset();
-    }
-
-    void JustDied(Unit* killer) override
-    {
-        if (_hasRessurrected)
-            Talk(SAY_CAPERNIAN_DEATH);
-
-        advisorbase_ai::JustDied(killer);
-    }
-
-    void AttackStart(Unit* who) override
-    {
-        if (!who || me->HasUnitFlag(UNIT_FLAG_NON_ATTACKABLE))
-            return;
-
-        if (me->Attack(who, true))
-        {
-            AddThreat(who, 0.0f);
-            me->SetInCombatWith(who);
-            who->SetInCombatWith(me);
-
-            me->GetMotionMaster()->MoveChase(who, CAPERNIAN_DISTANCE);
-        }
-    }
-
-    void JustEngagedWith(Unit* /*who*/) override
-    {
-        Talk(SAY_CAPERNIAN_AGGRO);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        advisorbase_ai::UpdateAI(diff);
-
-        if (!UpdateVictim() || _inFakeDeath)
-            return;
-
-        //Fireball_Timer
-        if (Fireball_Timer <= diff)
-        {
-            DoCastVictim(SPELL_CAPERNIAN_FIREBALL);
-            Fireball_Timer = 4000;
-        }
-        else
-            Fireball_Timer -= diff;
-
-        //Conflagration_Timer
-        if (Conflagration_Timer <= diff)
-        {
-            Unit* target = SelectTarget(SelectTargetMethod::Random, 0);
-
-            if (target && me->IsWithinDistInMap(target, 30))
-                DoCast(target, SPELL_CONFLAGRATION);
-            else
-                DoCastVictim(SPELL_CONFLAGRATION);
-
-            Conflagration_Timer = 10000 + rand32() % 5000;
-        }
-        else
-            Conflagration_Timer -= diff;
-
-        //ArcaneExplosion_Timer
-        if (ArcaneExplosion_Timer <= diff)
-        {
-            bool InMeleeRange = false;
-            Unit* target = nullptr;
-            for (auto* ref : me->GetThreatManager().GetUnsortedThreatList())
+            void Initialize()
             {
-                Unit* unit = ref->GetVictim();
-                if (unit->IsWithinMeleeRange(me))
+                _advisorCounter = 0;
+                _pyrosCast = 0;
+                _netherbeamsCast = 0;
+                _phase = PHASE_NONE;
+                _scaleStage = 0;
+                _hasFullPower = false;
+            }
+
+            void Reset() override
+            {
+                Initialize();
+                DoAction(ACTION_PREPARE_ADVISORS);
+                me->RemoveUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
+                me->SetEmoteState(EMOTE_ONESHOT_NONE);
+                me->SetDisableGravity(false);
+                me->SetTarget(ObjectGuid::Empty);
+                me->SetObjectScale(1.0f);
+                BossAI::Reset();
+            }
+
+            void JustReachedHome() override
+            {
+                BossAI::JustReachedHome();
+
+                // Rebuild the surrounding environment.
+                if (GameObject* statue = instance->GetGameObject(DATA_KAEL_STATUE_LEFT))
+                    statue->ResetDoorOrButton();
+
+                if (GameObject* statue = instance->GetGameObject(DATA_KAEL_STATUE_RIGHT))
+                    statue->ResetDoorOrButton();
+
+                if (GameObject* window = instance->GetGameObject(DATA_TEMPEST_BRIDGE_WINDOW))
+                    window->ResetDoorOrButton();
+            }
+
+            void DoAction(int32 action) override
+            {
+                switch (action)
                 {
-                    InMeleeRange = true;
-                    target = unit;
-                    break;
+                    case ACTION_START_ENCOUNTER:
+                        Talk(SAY_INTRO);
+                        me->AddUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
+
+                        _advisorGuid[ADVISOR_THALADRED] = instance->GetGuidData(DATA_THALADREDTHEDARKENER);
+                        _advisorGuid[ADVISOR_SANGUINAR] = instance->GetGuidData(DATA_LORDSANGUINAR);
+                        _advisorGuid[ADVISOR_CAPERNIAN] = instance->GetGuidData(DATA_GRANDASTROMANCERCAPERNIAN);
+                        _advisorGuid[ADVISOR_TELONICUS] = instance->GetGuidData(DATA_MASTERENGINEERTELONICUS);
+
+                        _phase = PHASE_INTRO;
+                        instance->SetBossState(DATA_KAELTHAS, IN_PROGRESS);
+                        events.ScheduleEvent(EVENT_START_ENCOUNTER, 23000);
+                        break;
+                    case ACTION_PREPARE_ADVISORS:
+                        for (uint8 i = 0; i < MAX_ADVISORS; ++i)
+                        {
+                            if (Creature* creature = ObjectAccessor::GetCreature(*me, _advisorGuid[i]))
+                            {
+                                creature->Respawn(true);
+                                creature->AddUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
+                                creature->AI()->EnterEvadeMode();
+                            }
+                        }
+                        break;
+                    case ACTION_ACTIVE_ADVISOR:
+                        // They have already been active, so we are not handling new ones, just counting their death.
+                        if (_phase == PHASE_REVIVED_ADVISORS)
+                            ++_advisorCounter;
+
+                        switch (_advisorCounter)
+                        {
+                            case ADVISOR_THALADRED:
+                                Talk(SAY_INTRO_THALADRED);
+                                events.ScheduleEvent(EVENT_ACTIVE_ADVISOR, 7000);
+                                break;
+                            case ADVISOR_SANGUINAR:
+                                Talk(SAY_INTRO_SANGUINAR);
+                                events.ScheduleEvent(EVENT_ACTIVE_ADVISOR, 12500);
+                                break;
+                            case ADVISOR_CAPERNIAN:
+                                Talk(SAY_INTRO_CAPERNIAN);
+                                events.ScheduleEvent(EVENT_ACTIVE_ADVISOR, 7000);
+                                break;
+                            case ADVISOR_TELONICUS:
+                                Talk(SAY_INTRO_TELONICUS);
+                                events.ScheduleEvent(EVENT_ACTIVE_ADVISOR, 8400);
+                                break;
+                            case MAX_DEFEATED_ADVISORS:
+                                // Every advisor defeated - Phase 2 starts.
+                                Talk(SAY_PHASE2_WEAPON);
+                                events.ScheduleEvent(EVENT_SUMMON_WEAPONS, 3500);
+                                break;
+                            case MAX_KILLED_ADVISORS:
+                                // Every advisor killed - Phase 3 starts.
+                                events.ScheduleEvent(EVENT_ENGAGE_COMBAT, 5000);
+                                break;
+                            default:
+                                break;
+                        }
+                        break;
+                    case ACTION_SCHEDULE_COMBAT_EVENTS:
+                        _phase = PHASE_COMBAT;
+                        events.SetPhase(PHASE_COMBAT);
+                        events.ScheduleEvent(EVENT_FIREBALL, 1000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                        events.ScheduleEvent(EVENT_ARCANE_DISRUPTION, 45000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                        events.ScheduleEvent(EVENT_FLAMESTRIKE, 30000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                        events.ScheduleEvent(EVENT_MIND_CONTROL, 40000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                        events.ScheduleEvent(EVENT_SUMMON_PHOENIX, 50000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                        break;
+                    default:
+                        break;
                 }
             }
 
-            if (InMeleeRange)
-                DoCast(target, SPELL_ARCANE_EXPLOSION);
+            void MoveInLineOfSight(Unit* who) override
+            {
+                if (_phase == PHASE_NONE && me->IsValidAttackTarget(who) && me->IsWithinDistInMap(who, 30.0f))
+                {
+                    DoAction(ACTION_START_ENCOUNTER);
+                    who->SetInCombatWith(me);
+                    me->AddThreat(who, 0.0f);
+                    me->SetTarget(who->GetGUID());
+                }
+            }
 
-            ArcaneExplosion_Timer = 4000 + rand32() % 2000;
+            void DamageTaken(Unit* attacker, uint32& damage) override
+            {
+                if (_phase == PHASE_NONE)
+                {
+                    DoAction(ACTION_START_ENCOUNTER);
+                    me->SetTarget(attacker->GetGUID());
+                }
+
+                if (!_hasFullPower && me->HealthBelowPctDamaged(50, damage))
+                {
+                    _hasFullPower = true;
+                    me->AttackStop();
+                    me->InterruptNonMeleeSpells(false);
+                    events.CancelEventGroup(EVENT_GROUP_COMBAT);
+                    events.CancelEventGroup(EVENT_GROUP_SPECIAL);
+                    events.SetPhase(PHASE_TRANSITION);
+                    me->SetReactState(REACT_PASSIVE);
+                    me->GetMotionMaster()->MovePoint(POINT_START_TRANSITION, TransitionPos[0]);
+                }
+            }
+
+            void MovementInform(uint32 type, uint32 point) override
+            {
+                if (type != POINT_MOTION_TYPE)
+                    return;
+
+                switch (point)
+                {
+                    case POINT_START_TRANSITION:
+                        events.ScheduleEvent(EVENT_TRANSITION_1, 1000);
+                        break;
+                    case POINT_TRANSITION_CENTER_ASCENDING:
+                        me->SetFacingTo(float(M_PI), true);
+                        Talk(SAY_PHASE5_NUTS);
+                        me->AddUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
+                        me->SetDisableGravity(true);
+                        //me->SetHover(true); -- Set in sniffs, but breaks his visual.
+                        events.ScheduleEvent(EVENT_TRANSITION_2, 2000);
+                        events.ScheduleEvent(EVENT_SIZE_INCREASE, 5000);
+                        break;
+                    case POINT_TRANSITION_HALFWAY_ASCENDING:
+                        DoCast(me, SPELL_NETHER_BEAM_VISUAL3, true);
+                        events.ScheduleEvent(EVENT_TRANSITION_3, 1000);
+                        break;
+                    case POINT_TRANSITION_TOP:
+                        events.ScheduleEvent(EVENT_EXPLODE, 10000);
+                        break;
+                    case POINT_TRANSITION_HALFWAY_DESCENDING:
+                        events.ScheduleEvent(EVENT_TRANSITION_5, 2000);
+                        break;
+                    case POINT_END_TRANSITION:
+                        me->SetReactState(REACT_AGGRESSIVE);
+                        me->InterruptNonMeleeSpells(false);
+                        me->RemoveUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
+                        me->RemoveAurasDueToSpell(SPELL_FULLPOWER);
+
+                        if (Unit* target = SelectTarget(SELECT_TARGET_TOPAGGRO, 0))
+                            AttackStart(target);
+
+                        DoAction(ACTION_SCHEDULE_COMBAT_EVENTS);
+                        events.ScheduleEvent(EVENT_GRAVITY_LAPSE, 10000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            void KilledUnit(Unit* /*victim*/) override
+            {
+                Talk(SAY_SLAY);
+            }
+
+            void JustSummoned(Creature* summoned) override
+            {
+                // if not phoenix, then it's one of the 7 weapons
+                if (summoned->GetEntry() != NPC_PHOENIX)
+                {
+                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                        summoned->AI()->AttackStart(target);
+
+                    summons.Summon(summoned);
+                }
+            }
+
+            void JustDied(Unit* killer) override
+            {
+                Talk(SAY_DEATH);
+                BossAI::JustDied(killer);
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                if (_phase == PHASE_COMBAT)
+                    if (!UpdateVictim())
+                        return;
+
+                events.Update(diff);
+
+                // SPELL_KAEL_GAINING_POWER and SPELL_KAEL_STUNNED are channeling spells that need to be interrupted during his transition.
+                if (me->HasUnitState(UNIT_STATE_CASTING) && !me->FindCurrentSpellBySpellId(SPELL_KAEL_GAINING_POWER) && !me->FindCurrentSpellBySpellId(SPELL_KAEL_STUNNED))
+                    return;
+
+                while (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                        case EVENT_START_ENCOUNTER:
+                            me->AddUnitFlag(UNIT_FLAG_PACIFIED);
+                            DoAction(ACTION_ACTIVE_ADVISOR);
+                            break;
+                        case EVENT_ACTIVE_ADVISOR:
+                            if (Creature* advisor = ObjectAccessor::GetCreature(*me, _advisorGuid[_advisorCounter]))
+                            {
+                                advisor->RemoveUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
+
+                                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                                    advisor->AI()->AttackStart(target);
+                            }
+                            ++_advisorCounter;
+                            break;
+                        case EVENT_SUMMON_WEAPONS:
+                        {
+                            DoCast(me, SPELL_SUMMON_WEAPONS, false);
+
+                            uint8 uiMaxWeapon = sizeof(m_auiSpellSummonWeapon) / sizeof(uint32);
+
+                            for (uint32 i = 0; i < uiMaxWeapon; ++i)
+                                DoCast(me, m_auiSpellSummonWeapon[i], true);
+
+                            events.ScheduleEvent(EVENT_REVIVE_ADVISORS, 120000);
+                            break;
+                        }
+                        case EVENT_REVIVE_ADVISORS:
+                            _phase = PHASE_REVIVED_ADVISORS;
+                            Talk(SAY_PHASE3_ADVANCE);
+                            DoCast(me, SPELL_RESSURECTION);
+                            break;
+                        case EVENT_ENGAGE_COMBAT:
+                            Talk(SAY_PHASE4_INTRO2);
+
+                            // Sometimes people can collect Aggro in Phase 1-3. Reset threat before releasing Kael.
+                            DoResetThreat();
+
+                            me->RemoveUnitFlag(UnitFlags(UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_PACIFIED));
+
+                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                                AttackStart(target);
+
+                            DoAction(ACTION_SCHEDULE_COMBAT_EVENTS);
+                            events.ScheduleEvent(EVENT_PYROBLAST, 60000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                            break;
+                        case EVENT_FIREBALL:
+                            DoCastVictim(SPELL_FIREBALL);
+                            events.ScheduleEvent(EVENT_FIREBALL, 2500, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                            break;
+                        case EVENT_ARCANE_DISRUPTION:
+                            DoCastVictim(SPELL_ARCANE_DISRUPTION, true);
+                            events.ScheduleEvent(EVENT_ARCANE_DISRUPTION, 60000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                            break;
+                        case EVENT_FLAMESTRIKE:
+                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                                DoCast(target, SPELL_FLAME_STRIKE);
+
+                            events.ScheduleEvent(EVENT_FLAMESTRIKE, 30000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                            break;
+                        case EVENT_MIND_CONTROL:
+                            Talk(SAY_MIND_CONTROL);
+                            DoCastAOE(SPELL_MIND_CONTROL, true);
+                            events.ScheduleEvent(EVENT_MIND_CONTROL, 60000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                            break;
+                        case EVENT_SUMMON_PHOENIX:
+                            DoCast(me, SPELL_PHOENIX_ANIMATION);
+                            Talk(SAY_SUMMON_PHOENIX);
+                            events.ScheduleEvent(EVENT_SUMMON_PHOENIX, urand(45000, 60000), EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                            break;
+                        case EVENT_END_TRANSITION:
+                            me->SetEmoteState(EMOTE_ONESHOT_NONE);
+                            DoCast(SPELL_FULLPOWER);
+                            events.ScheduleEvent(EVENT_TRANSITION_4, 2000);
+                            break;
+                        case EVENT_PYROBLAST:
+                            _pyrosCast = 0;
+                            Talk(EMOTE_PYROBLAST);
+                            DoCast(me, SPELL_SHOCK_BARRIER);
+                            events.DelayEvents(10000, EVENT_GROUP_COMBAT);
+                            events.ScheduleEvent(EVENT_PYROBLAST_CAST, 1000, EVENT_GROUP_SPECIAL, PHASE_COMBAT);
+                            break;
+                        case EVENT_PYROBLAST_CAST:
+                            if (_pyrosCast < 3)
+                            {
+                                DoCastVictim(SPELL_PYROBLAST);
+                                events.ScheduleEvent(EVENT_PYROBLAST_CAST, 3000);
+                                _pyrosCast++;
+                            }
+                            else
+                                events.ScheduleEvent(EVENT_PYROBLAST, 60000, EVENT_GROUP_COMBAT, PHASE_COMBAT);
+                            break;
+                        case EVENT_GRAVITY_LAPSE:
+                            Talk(SAY_GRAVITY_LAPSE);
+                            DoCastAOE(SPELL_GRAVITY_LAPSE);
+                            DoCast(me, SPELL_NETHER_VAPOR);
+                            events.DelayEvents(24000, EVENT_GROUP_COMBAT);
+                            events.ScheduleEvent(EVENT_NETHER_BEAM, 3000, EVENT_GROUP_SPECIAL, PHASE_COMBAT);
+                            events.ScheduleEvent(EVENT_SHOCK_BARRIER, 1000, EVENT_GROUP_SPECIAL, PHASE_COMBAT);
+                            events.ScheduleEvent(EVENT_GRAVITY_LAPSE, 30000, EVENT_GROUP_SPECIAL, PHASE_COMBAT);
+                            break;
+                        case EVENT_NETHER_BEAM:
+                            if (_netherbeamsCast <= 8)
+                            {
+                                if (Unit* unit = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                                    DoCast(unit, SPELL_NETHER_BEAM);
+
+                                _netherbeamsCast++;
+                                events.ScheduleEvent(EVENT_NETHER_BEAM, 3000);
+                            }
+                            else
+                                _netherbeamsCast = 0;
+                            break;
+                        case EVENT_TRANSITION_1:
+                            me->GetMotionMaster()->MovePoint(POINT_TRANSITION_CENTER_ASCENDING, TransitionPos[1]);
+                            break;
+                        case EVENT_TRANSITION_2:
+                            DoCast(me, SPELL_KAEL_GAINING_POWER);
+                            me->GetMotionMaster()->Clear();
+                            me->RemoveUnitMovementFlag(MOVEMENTFLAG_ROOT);
+                            me->GetMotionMaster()->MovePoint(POINT_TRANSITION_HALFWAY_ASCENDING, TransitionPos[2], false);
+                            break;
+                        case EVENT_TRANSITION_3:
+                            me->GetMotionMaster()->MovePoint(POINT_TRANSITION_TOP, TransitionPos[3], false);
+                            break;
+                        case EVENT_TRANSITION_4:
+                            me->GetMotionMaster()->MovePoint(POINT_TRANSITION_HALFWAY_DESCENDING, TransitionPos[4], false);
+                            break;
+                        case EVENT_TRANSITION_5:
+                            me->GetMotionMaster()->MovePoint(POINT_END_TRANSITION, TransitionPos[5], false);
+                            break;
+                        case EVENT_EXPLODE:
+                            me->InterruptNonMeleeSpells(false);
+                            me->RemoveAurasDueToSpell(SPELL_NETHER_BEAM_VISUAL3);
+                            DoCast(me, SPELL_KAEL_EXPLODES3, true);
+                            DoCast(me, SPELL_KAEL_STUNNED); // Core doesn't handle the emote properly while flying.
+                            me->SetEmoteState(EMOTE_STATE_DROWNED);
+
+                            // Destroy the surrounding environment.
+                            if (GameObject* statue = instance->GetGameObject(DATA_KAEL_STATUE_LEFT))
+                                statue->UseDoorOrButton();
+
+                            if (GameObject* statue = instance->GetGameObject(DATA_KAEL_STATUE_RIGHT))
+                                statue->UseDoorOrButton();
+
+                            if (GameObject* window = instance->GetGameObject(DATA_TEMPEST_BRIDGE_WINDOW))
+                                window->UseDoorOrButton();
+
+                            events.ScheduleEvent(EVENT_END_TRANSITION, 10000);
+                            break;
+                        case EVENT_SIZE_INCREASE:
+                            switch (_scaleStage)
+                            {
+                                case 0:
+                                    me->SetObjectScale(1.4f);
+                                    events.ScheduleEvent(EVENT_SIZE_INCREASE, 5000);
+                                    break;
+                                case 1:
+                                    me->SetObjectScale(1.8f);
+                                    events.ScheduleEvent(EVENT_SIZE_INCREASE, 3000);
+                                    break;
+                                case 2:
+                                    me->SetObjectScale(2.0f);
+                                    events.ScheduleEvent(EVENT_SIZE_INCREASE, 1000);
+                                    break;
+                                case 3:
+                                    me->SetObjectScale(2.2f);
+                                    break;
+                                default:
+                                    break;
+                            }
+                            ++_scaleStage;
+                            break;
+                        default:
+                            break;
+                    }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING) && !me->FindCurrentSpellBySpellId(SPELL_KAEL_GAINING_POWER) && !me->FindCurrentSpellBySpellId(SPELL_KAEL_STUNNED))
+                        return;
+                }
+
+                if (events.IsInPhase(PHASE_COMBAT))
+                    DoMeleeAttackIfReady();
+            }
+        private:
+            uint8 _advisorCounter;
+            uint8 _phase;
+            uint8 _pyrosCast;
+            uint8 _scaleStage;
+            uint8 _netherbeamsCast;
+            bool _hasFullPower;
+            ObjectGuid _advisorGuid[MAX_ADVISORS];
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetTheEyeAI<boss_kaelthasAI>(creature);
         }
-        else
-            ArcaneExplosion_Timer -= diff;
-
-        //Do NOT deal any melee damage.
-    }
 };
 
-struct boss_master_engineer_telonicus : public advisorbase_ai
+class boss_thaladred_the_darkener : public CreatureScript
 {
-    boss_master_engineer_telonicus(Creature* creature) : advisorbase_ai(creature)
-    {
-        Initialize();
-    }
+    public:
 
-    void Initialize()
-    {
-        Bomb_Timer = 10000;
-        RemoteToy_Timer = 5000;
-    }
+        boss_thaladred_the_darkener() : CreatureScript("boss_thaladred_the_darkener") { }
 
-    uint32 Bomb_Timer;
-    uint32 RemoteToy_Timer;
-
-    void Reset() override
-    {
-        Initialize();
-
-        advisorbase_ai::Reset();
-    }
-
-    void JustDied(Unit* killer) override
-    {
-        if (_hasRessurrected)
-            Talk(SAY_TELONICUS_DEATH);
-
-        advisorbase_ai::JustDied(killer);
-    }
-
-    void JustEngagedWith(Unit* /*who*/) override
-    {
-        Talk(SAY_TELONICUS_AGGRO);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        advisorbase_ai::UpdateAI(diff);
-
-        if (!UpdateVictim() || _inFakeDeath)
-            return;
-
-        //Bomb_Timer
-        if (Bomb_Timer <= diff)
+        struct boss_thaladred_the_darkenerAI : public advisorbase_ai
         {
-            DoCastVictim(SPELL_BOMB);
-            Bomb_Timer = 25000;
-        }
-        else
-            Bomb_Timer -= diff;
+            boss_thaladred_the_darkenerAI(Creature* creature) : advisorbase_ai(creature)
+            {
+                Initialize();
+            }
 
-        //RemoteToy_Timer
-        if (RemoteToy_Timer <= diff)
+            void Initialize()
+            {
+                Gaze_Timer = 100;
+                Silence_Timer = 20000;
+                Rend_Timer = 4000;
+                PsychicBlow_Timer = 10000;
+            }
+
+            uint32 Gaze_Timer;
+            uint32 Silence_Timer;
+            uint32 Rend_Timer;
+            uint32 PsychicBlow_Timer;
+
+            void Reset() override
+            {
+                Initialize();
+
+                advisorbase_ai::Reset();
+            }
+
+            void EnterCombat(Unit* who) override
+            {
+                Talk(SAY_THALADRED_AGGRO);
+                me->AddThreat(who, 5000000.0f);
+            }
+
+            void JustDied(Unit* killer) override
+            {
+                if (_hasRessurrected)
+                    Talk(SAY_THALADRED_DEATH);
+
+                advisorbase_ai::JustDied(killer);
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                advisorbase_ai::UpdateAI(diff);
+
+                if (!UpdateVictim() || _inFakeDeath)
+                    return;
+
+                //Gaze_Timer
+                if (Gaze_Timer <= diff)
+                {
+                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    {
+                        DoResetThreat();
+                        me->AddThreat(target, 5000000.0f);
+                        Talk(EMOTE_THALADRED_GAZE, target);
+                        Gaze_Timer = 8500;
+                    }
+                }
+                else
+                    Gaze_Timer -= diff;
+
+                //Silence_Timer
+                if (Silence_Timer <= diff)
+                {
+                    DoCastVictim(SPELL_SILENCE);
+                    Silence_Timer = 20000;
+                }
+                else
+                    Silence_Timer -= diff;
+
+                //Rend_Timer
+                if (Rend_Timer <= diff)
+                {
+                    DoCastVictim(SPELL_REND);
+                    Rend_Timer = 4000;
+                }
+                else
+                    Rend_Timer -= diff;
+
+                //PsychicBlow_Timer
+                if (PsychicBlow_Timer <= diff)
+                {
+                    DoCastVictim(SPELL_PSYCHIC_BLOW);
+                    PsychicBlow_Timer = 20000 + rand32() % 5000;
+                }
+                else
+                    PsychicBlow_Timer -= diff;
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
         {
-            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
-                DoCast(target, SPELL_REMOTE_TOY);
-
-            RemoteToy_Timer = 10000 + rand32() % 5000;
+            return GetTheEyeAI<boss_thaladred_the_darkenerAI>(creature);
         }
-        else
-            RemoteToy_Timer -= diff;
-
-        DoMeleeAttackIfReady();
-    }
 };
 
-struct npc_kael_flamestrike : public ScriptedAI
+class boss_lord_sanguinar : public CreatureScript
 {
-    npc_kael_flamestrike(Creature* creature) : ScriptedAI(creature) { }
+    public:
 
-    void InitializeAI() override
-    {
-        me->SetReactState(REACT_PASSIVE);
-    }
+        boss_lord_sanguinar() : CreatureScript("boss_lord_sanguinar") { }
 
-    void JustAppeared() override
-    {
-        DoCastSelf(SPELL_FLAME_STRIKE_DUMMY);
-        me->DespawnOrUnsummon(15s);
-    }
+        struct boss_lord_sanguinarAI : public advisorbase_ai
+        {
+            boss_lord_sanguinarAI(Creature* creature) : advisorbase_ai(creature)
+            {
+                Initialize();
+            }
+
+            void Initialize()
+            {
+                Fear_Timer = 20000;
+            }
+
+            uint32 Fear_Timer;
+
+            void Reset() override
+            {
+                Initialize();
+                advisorbase_ai::Reset();
+            }
+
+            void EnterCombat(Unit* /*who*/) override
+            {
+                Talk(SAY_SANGUINAR_AGGRO);
+            }
+
+            void JustDied(Unit* killer) override
+            {
+                if (_hasRessurrected)
+                    Talk(SAY_SANGUINAR_DEATH);
+
+                advisorbase_ai::JustDied(killer);
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                advisorbase_ai::UpdateAI(diff);
+
+                if (!UpdateVictim() || _inFakeDeath)
+                    return;
+
+                //Fear_Timer
+                if (Fear_Timer <= diff)
+                {
+                    DoCastVictim(SPELL_BELLOWING_ROAR);
+                    Fear_Timer = 25000 + rand32() % 10000;                //approximately every 30 seconds
+                }
+                else
+                    Fear_Timer -= diff;
+
+                DoMeleeAttackIfReady();
+            }
+        };
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetTheEyeAI<boss_lord_sanguinarAI>(creature);
+        }
 };
 
-struct npc_phoenix_tk : public ScriptedAI
+class boss_grand_astromancer_capernian : public CreatureScript
 {
-    npc_phoenix_tk(Creature* creature) : ScriptedAI(creature)
-    {
-        Initialize();
-    }
+    public:
 
-    void Initialize()
-    {
-        Cycle_Timer = 2000;
-    }
+        boss_grand_astromancer_capernian() : CreatureScript("boss_grand_astromancer_capernian") { }
 
-    uint32 Cycle_Timer;
-
-    void Reset() override
-    {
-        Initialize();
-        DoCast(me, SPELL_BURN, true);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        //is this spell in use anylonger?
-        //DoCast(me, SPELL_EMBER_BLAST, true);
-        me->SummonCreature(NPC_PHOENIX_EGG, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), me->GetOrientation(), TEMPSUMMON_TIMED_DESPAWN, 16s);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        if (Cycle_Timer <= diff)
+        struct boss_grand_astromancer_capernianAI : public advisorbase_ai
         {
-            //spell Burn should possible do this, but it doesn't, so do this for now.
-            uint32 dmg = urand(4500, 5500);
-            if (me->GetHealth() > dmg)
-                me->ModifyHealth(-int32(dmg));
-            Cycle_Timer = 2000;
-        }
-        else
-            Cycle_Timer -= diff;
+            boss_grand_astromancer_capernianAI(Creature* creature) : advisorbase_ai(creature)
+            {
+                Initialize();
+            }
 
-        DoMeleeAttackIfReady();
-    }
+            void Initialize()
+            {
+                Fireball_Timer = 2000;
+                Conflagration_Timer = 20000;
+                ArcaneExplosion_Timer = 5000;
+                Yell_Timer = 2000;
+                Yell = false;
+            }
+
+            uint32 Fireball_Timer;
+            uint32 Conflagration_Timer;
+            uint32 ArcaneExplosion_Timer;
+            uint32 Yell_Timer;
+            bool Yell;
+
+            void Reset() override
+            {
+                Initialize();
+
+                advisorbase_ai::Reset();
+            }
+
+            void JustDied(Unit* killer) override
+            {
+                if (_hasRessurrected)
+                    Talk(SAY_CAPERNIAN_DEATH);
+
+                advisorbase_ai::JustDied(killer);
+            }
+
+            void AttackStart(Unit* who) override
+            {
+                if (!who || me->HasUnitFlag(UNIT_FLAG_NON_ATTACKABLE))
+                    return;
+
+                if (me->Attack(who, true))
+                {
+                    me->AddThreat(who, 0.0f);
+                    me->SetInCombatWith(who);
+                    who->SetInCombatWith(me);
+
+                    me->GetMotionMaster()->MoveChase(who, CAPERNIAN_DISTANCE);
+                }
+            }
+
+            void EnterCombat(Unit* /*who*/) override
+            {
+                Talk(SAY_CAPERNIAN_AGGRO);
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                advisorbase_ai::UpdateAI(diff);
+
+                if (!UpdateVictim() || _inFakeDeath)
+                    return;
+
+                //Fireball_Timer
+                if (Fireball_Timer <= diff)
+                {
+                    DoCastVictim(SPELL_CAPERNIAN_FIREBALL);
+                    Fireball_Timer = 4000;
+                }
+                else
+                    Fireball_Timer -= diff;
+
+                //Conflagration_Timer
+                if (Conflagration_Timer <= diff)
+                {
+                    Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0);
+
+                    if (target && me->IsWithinDistInMap(target, 30))
+                        DoCast(target, SPELL_CONFLAGRATION);
+                    else
+                        DoCastVictim(SPELL_CONFLAGRATION);
+
+                    Conflagration_Timer = 10000 + rand32() % 5000;
+                }
+                else
+                    Conflagration_Timer -= diff;
+
+                //ArcaneExplosion_Timer
+                if (ArcaneExplosion_Timer <= diff)
+                {
+                    bool InMeleeRange = false;
+                    Unit* target = NULL;
+                    ThreatContainer::StorageType const &threatlist = me->getThreatManager().getThreatList();
+                    for (ThreatContainer::StorageType::const_iterator i = threatlist.begin(); i!= threatlist.end(); ++i)
+                    {
+                        Unit* unit = ObjectAccessor::GetUnit(*me, (*i)->getUnitGuid());
+                                                                    //if in melee range
+                        if (unit && unit->IsWithinDistInMap(me, 5))
+                        {
+                            InMeleeRange = true;
+                            target = unit;
+                            break;
+                        }
+                    }
+
+                    if (InMeleeRange)
+                        DoCast(target, SPELL_ARCANE_EXPLOSION);
+
+                    ArcaneExplosion_Timer = 4000 + rand32() % 2000;
+                }
+                else
+                    ArcaneExplosion_Timer -= diff;
+
+                //Do NOT deal any melee damage.
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetTheEyeAI<boss_grand_astromancer_capernianAI>(creature);
+        }
 };
 
-struct npc_phoenix_egg_tk : public ScriptedAI
+class boss_master_engineer_telonicus : public CreatureScript
 {
-    npc_phoenix_egg_tk(Creature* creature) : ScriptedAI(creature)
-    {
-        Initialize();
-    }
+    public:
 
-    void Initialize()
-    {
-        Rebirth_Timer = 15000;
-    }
+        boss_master_engineer_telonicus() : CreatureScript("boss_master_engineer_telonicus") { }
 
-    uint32 Rebirth_Timer;
-
-    void Reset() override
-    {
-        Initialize();
-    }
-
-    //ignore any
-    void MoveInLineOfSight(Unit* /*who*/) override { }
-
-    void AttackStart(Unit* who) override
-    {
-        if (me->Attack(who, false))
+        struct boss_master_engineer_telonicusAI : public advisorbase_ai
         {
-            me->SetInCombatWith(who);
-            who->SetInCombatWith(me);
+            boss_master_engineer_telonicusAI(Creature* creature) : advisorbase_ai(creature)
+            {
+                Initialize();
+            }
 
-            DoStartNoMovement(who);
-        }
-    }
+            void Initialize()
+            {
+                Bomb_Timer = 10000;
+                RemoteToy_Timer = 5000;
+            }
 
-    void JustSummoned(Creature* summoned) override
-    {
-        AddThreat(me->GetVictim(), 0.0f, summoned);
-        summoned->CastSpell(summoned, SPELL_REBIRTH, false);
-    }
+            uint32 Bomb_Timer;
+            uint32 RemoteToy_Timer;
 
-    void UpdateAI(uint32 diff) override
-    {
-        if (!Rebirth_Timer)
-            return;
+            void Reset() override
+            {
+                Initialize();
 
-        if (Rebirth_Timer <= diff)
+                advisorbase_ai::Reset();
+            }
+
+            void JustDied(Unit* killer) override
+            {
+                if (_hasRessurrected)
+                    Talk(SAY_TELONICUS_DEATH);
+
+                advisorbase_ai::JustDied(killer);
+            }
+
+            void EnterCombat(Unit* /*who*/) override
+            {
+                Talk(SAY_TELONICUS_AGGRO);
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                advisorbase_ai::UpdateAI(diff);
+
+                if (!UpdateVictim() || _inFakeDeath)
+                    return;
+
+                //Bomb_Timer
+                if (Bomb_Timer <= diff)
+                {
+                    DoCastVictim(SPELL_BOMB);
+                    Bomb_Timer = 25000;
+                }
+                else
+                    Bomb_Timer -= diff;
+
+                //RemoteToy_Timer
+                if (RemoteToy_Timer <= diff)
+                {
+                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                        DoCast(target, SPELL_REMOTE_TOY);
+
+                    RemoteToy_Timer = 10000 + rand32() % 5000;
+                }
+                else
+                    RemoteToy_Timer -= diff;
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
         {
-            me->SummonCreature(NPC_PHOENIX, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), me->GetOrientation(), TEMPSUMMON_CORPSE_DESPAWN, 5s);
-            Rebirth_Timer = 0;
+            return GetTheEyeAI<boss_master_engineer_telonicusAI>(creature);
         }
-        else
-            Rebirth_Timer -= diff;
-    }
+};
+
+class npc_kael_flamestrike : public CreatureScript
+{
+    public:
+
+        npc_kael_flamestrike() : CreatureScript("npc_kael_flamestrike") { }
+
+        struct npc_kael_flamestrikeAI : public ScriptedAI
+        {
+            npc_kael_flamestrikeAI(Creature* creature) : ScriptedAI(creature)
+            {
+                Initialize();
+                SetCombatMovement(false);
+            }
+
+            void Initialize()
+            {
+                Timer = 5000;
+                Casting = false;
+                KillSelf = false;
+            }
+
+            uint32 Timer;
+            bool Casting;
+            bool KillSelf;
+
+            void Reset() override
+            {
+                Initialize();
+
+                me->AddUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
+                me->SetFaction(14);
+            }
+
+            void MoveInLineOfSight(Unit* /*who*/) override { }
+
+            void EnterCombat(Unit* /*who*/) override { }
+
+            void UpdateAI(uint32 diff) override
+            {
+                if (!Casting)
+                {
+                    DoCast(me, SPELL_FLAME_STRIKE_VIS);
+                    Casting = true;
+                }
+
+                //Timer
+                if (Timer <= diff)
+                {
+                    if (!KillSelf)
+                    {
+                        me->InterruptNonMeleeSpells(false);
+                        DoCast(me, SPELL_FLAME_STRIKE_DMG);
+                    }
+                    else
+                        me->KillSelf();
+
+                    KillSelf = true;
+                    Timer = 1000;
+                }
+                else
+                    Timer -= diff;
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetTheEyeAI<npc_kael_flamestrikeAI>(creature);
+        }
+};
+
+class npc_phoenix_tk : public CreatureScript
+{
+    public:
+
+        npc_phoenix_tk() : CreatureScript("npc_phoenix_tk") { }
+
+        struct npc_phoenix_tkAI : public ScriptedAI
+        {
+            npc_phoenix_tkAI(Creature* creature) : ScriptedAI(creature)
+            {
+                Initialize();
+            }
+
+            void Initialize()
+            {
+                Cycle_Timer = 2000;
+            }
+
+            uint32 Cycle_Timer;
+
+            void Reset() override
+            {
+                Initialize();
+                DoCast(me, SPELL_BURN, true);
+            }
+
+            void JustDied(Unit* /*killer*/) override
+            {
+                //is this spell in use anylonger?
+                //DoCast(me, SPELL_EMBER_BLAST, true);
+                me->SummonCreature(NPC_PHOENIX_EGG, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), me->GetOrientation(), TEMPSUMMON_TIMED_DESPAWN, 16000);
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                if (!UpdateVictim())
+                    return;
+
+                if (Cycle_Timer <= diff)
+                {
+                    //spell Burn should possible do this, but it doesn't, so do this for now.
+                    uint32 dmg = urand(4500, 5500);
+                    if (me->GetHealth() > dmg)
+                        me->ModifyHealth(-int32(dmg));
+                    Cycle_Timer = 2000;
+                }
+                else
+                    Cycle_Timer -= diff;
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetTheEyeAI<npc_phoenix_tkAI>(creature);
+        }
+};
+
+class npc_phoenix_egg_tk : public CreatureScript
+{
+    public:
+
+        npc_phoenix_egg_tk() : CreatureScript("npc_phoenix_egg_tk") { }
+
+        struct npc_phoenix_egg_tkAI : public ScriptedAI
+        {
+            npc_phoenix_egg_tkAI(Creature* creature) : ScriptedAI(creature)
+            {
+                Initialize();
+            }
+
+            void Initialize()
+            {
+                Rebirth_Timer = 15000;
+            }
+
+            uint32 Rebirth_Timer;
+
+            void Reset() override
+            {
+                Initialize();
+            }
+
+            //ignore any
+            void MoveInLineOfSight(Unit* /*who*/) override { }
+
+            void AttackStart(Unit* who) override
+            {
+                if (me->Attack(who, false))
+                {
+                    me->SetInCombatWith(who);
+                    who->SetInCombatWith(me);
+
+                    DoStartNoMovement(who);
+                }
+            }
+
+            void JustSummoned(Creature* summoned) override
+            {
+                summoned->AddThreat(me->GetVictim(), 0.0f);
+                summoned->CastSpell(summoned, SPELL_REBIRTH, false);
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                if (!Rebirth_Timer)
+                    return;
+
+                if (Rebirth_Timer <= diff)
+                {
+                    me->SummonCreature(NPC_PHOENIX, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), me->GetOrientation(), TEMPSUMMON_CORPSE_DESPAWN, 5000);
+                    Rebirth_Timer = 0;
+                }
+                else
+                    Rebirth_Timer -= diff;
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetTheEyeAI<npc_phoenix_egg_tkAI>(creature);
+        }
 };
 
 // 35941 - Gravity Lapse
-class spell_kael_gravity_lapse : public SpellScript
+class spell_kael_gravity_lapse : public SpellScriptLoader
 {
-    PrepareSpellScript(spell_kael_gravity_lapse);
+    public:
+        spell_kael_gravity_lapse() : SpellScriptLoader("spell_kael_gravity_lapse") { }
 
-public:
-    spell_kael_gravity_lapse()
-    {
-        _targetCount = 0;
-    }
+        class spell_kael_gravity_lapse_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_kael_gravity_lapse_SpellScript);
 
-    bool Validate(SpellInfo const* /*spell*/) override
-    {
-        return ValidateSpellInfo(GravityLapseSpells);
-    }
+        public:
+            spell_kael_gravity_lapse_SpellScript()
+            {
+                _targetCount = 0;
+            }
 
-    void HandleScript(SpellEffIndex /*effIndex*/)
-    {
-        GetCaster()->CastSpell(GetHitUnit(), GravityLapseSpells[_targetCount], true);
-        GetHitUnit()->CastSpell(GetHitUnit(), SPELL_GRAVITY_LAPSE_PERIODIC, true);
-        GetHitUnit()->CastSpell(GetHitUnit(), SPELL_GRAVITY_LAPSE_FLIGHT_AURA, true);
-        _targetCount++;
-    }
+            bool Validate(SpellInfo const* /*spell*/) override
+            {
+                return ValidateSpellInfo(GravityLapseSpells);
+            }
 
-    void Register() override
-    {
-        OnEffectHitTarget += SpellEffectFn(spell_kael_gravity_lapse::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
-    }
+            void HandleScript(SpellEffIndex /*effIndex*/)
+            {
+                GetCaster()->CastSpell(GetHitUnit(), GravityLapseSpells[_targetCount], true);
+                GetHitUnit()->CastSpell(GetHitUnit(), SPELL_GRAVITY_LAPSE_PERIODIC, true);
+                GetHitUnit()->CastSpell(GetHitUnit(), SPELL_GRAVITY_LAPSE_FLIGHT_AURA, true);
+                _targetCount++;
+            }
 
-private:
-    uint8 _targetCount;
-};
+            void Register() override
+            {
+                OnEffectHitTarget += SpellEffectFn(spell_kael_gravity_lapse_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
+            }
 
-// 36730 - Flame Strike
-class spell_kaelthas_flame_strike : public AuraScript
-{
-    PrepareAuraScript(spell_kaelthas_flame_strike);
+            private:
+                 uint8 _targetCount;
+        };
 
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo({ SPELL_FLAME_STRIKE_DAMAGE });
-    }
-
-    void AfterRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
-    {
-        Unit* target = GetTarget();
-        target->CastSpell(target, SPELL_FLAME_STRIKE_DAMAGE);
-    }
-
-    void Register() override
-    {
-        AfterEffectRemove += AuraEffectRemoveFn(spell_kaelthas_flame_strike::AfterRemove, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-    }
-};
-
-// 36976 - Summon Weapons
-class spell_kaelthas_summon_weapons : public SpellScript
-{
-    PrepareSpellScript(spell_kaelthas_summon_weapons);
-
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo(SummonWeaponsSpells);
-    }
-
-    void HandleScript(SpellEffIndex /*effIndex*/)
-    {
-        Unit* caster = GetCaster();
-        for (uint32 spells : SummonWeaponsSpells)
-            caster->CastSpell(caster, spells, true);
-    }
-
-    void Register() override
-    {
-        OnEffectHit += SpellEffectFn(spell_kaelthas_summon_weapons::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
-    }
-};
-
-// 39497 - Remove Enchanted Weapons
-class spell_kaelthas_remove_weapons : public SpellScript
-{
-    PrepareSpellScript(spell_kaelthas_remove_weapons);
-
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo(RemoveWeaponsSpells);
-    }
-
-    void HandleScript(SpellEffIndex /*effIndex*/)
-    {
-        if (Player* player = GetHitPlayer())
-            for (uint32 spells : RemoveWeaponsSpells)
-                player->CastSpell(player, spells, TriggerCastFlags(TRIGGERED_FULL_MASK & ~TRIGGERED_IGNORE_POWER_AND_REAGENT_COST));
-    }
-
-    void Register() override
-    {
-        OnEffectHitTarget += SpellEffectFn(spell_kaelthas_remove_weapons::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
-    }
+        SpellScript* GetSpellScript() const override
+        {
+            return new spell_kael_gravity_lapse_SpellScript();
+        }
 };
 
 void AddSC_boss_kaelthas()
 {
-    RegisterTheEyeCreatureAI(boss_kaelthas);
-    RegisterTheEyeCreatureAI(boss_thaladred_the_darkener);
-    RegisterTheEyeCreatureAI(boss_lord_sanguinar);
-    RegisterTheEyeCreatureAI(boss_grand_astromancer_capernian);
-    RegisterTheEyeCreatureAI(boss_master_engineer_telonicus);
-    RegisterTheEyeCreatureAI(npc_kael_flamestrike);
-    RegisterTheEyeCreatureAI(npc_phoenix_tk);
-    RegisterTheEyeCreatureAI(npc_phoenix_egg_tk);
-    RegisterSpellScript(spell_kael_gravity_lapse);
-    RegisterSpellScript(spell_kaelthas_flame_strike);
-    RegisterSpellScript(spell_kaelthas_summon_weapons);
-    RegisterSpellScript(spell_kaelthas_remove_weapons);
+    new boss_kaelthas();
+    new boss_thaladred_the_darkener();
+    new boss_lord_sanguinar();
+    new boss_grand_astromancer_capernian();
+    new boss_master_engineer_telonicus();
+    new npc_kael_flamestrike();
+    new npc_phoenix_tk();
+    new npc_phoenix_egg_tk();
+    new spell_kael_gravity_lapse();
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,13 +15,14 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptMgr.h"
 #include "AreaBoundary.h"
+#include "ScriptMgr.h"
+#include "Creature.h"
+#include "CreatureAI.h"
 #include "GameObject.h"
 #include "InstanceScript.h"
 #include "magtheridons_lair.h"
 #include "Map.h"
-#include "ScriptedCreature.h"
 
 BossBoundaryData const boundaries =
 {
@@ -54,7 +55,7 @@ ObjectData const gameObjectData[] =
     { 0,                            0                           } //END
 };
 
-static MLDataTypes const collapseObjectDatas[] =
+static DataTypes const collapseObjectDatas[] =
 {
     DATA_MAGTHERIDON_COLUMN_0,
     DATA_MAGTHERIDON_COLUMN_1,
@@ -67,7 +68,7 @@ static MLDataTypes const collapseObjectDatas[] =
 class instance_magtheridons_lair : public InstanceMapScript
 {
     public:
-        instance_magtheridons_lair() : InstanceMapScript(MLScriptName, 544) { }
+        instance_magtheridons_lair() : InstanceMapScript("instance_magtheridons_lair", 544) { }
 
         struct instance_magtheridons_lair_InstanceMapScript : public InstanceScript
         {
@@ -107,7 +108,7 @@ class instance_magtheridons_lair : public InstanceMapScript
                                 if (value == ACTION_ENABLE)
                                     cube->RemoveFlag(GO_FLAG_NOT_SELECTABLE);
                                 else
-                                    cube->SetFlag(GO_FLAG_NOT_SELECTABLE);
+                                    cube->AddFlag(GO_FLAG_NOT_SELECTABLE);
                             }
                         break;
                     case DATA_COLLAPSE:
@@ -115,15 +116,15 @@ class instance_magtheridons_lair : public InstanceMapScript
                             HandleGameObject(ObjectGuid::Empty, value == ACTION_ENABLE ? true : false, hall);
                         break;
                     case DATA_COLLAPSE_2:
-                        for (MLDataTypes type : collapseObjectDatas)
-                            if (GameObject* go = GetGameObject(type))
+                        for (DataTypes data : collapseObjectDatas)
+                            if (GameObject* go = GetGameObject(data))
                                 HandleGameObject(ObjectGuid::Empty, value == ACTION_ENABLE ? true : false, go);
                         break;
                     case DATA_CALL_WARDERS:
                         for (ObjectGuid warderGuid : warderGUIDS)
                             if (Creature* warder = instance->GetCreature(warderGuid))
                                 if (warder->IsAlive())
-                                    warder->AI()->DoZoneInCombat();
+                                    warder->SetInCombatWithZone();
                         break;
                     default:
                         break;

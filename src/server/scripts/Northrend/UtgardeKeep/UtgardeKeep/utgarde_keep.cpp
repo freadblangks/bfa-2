@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -31,79 +31,127 @@ uint32 ForgeSearch[3] =
     GO_GLOWING_ANVIL_3
 };
 
-struct npc_dragonflayer_forge_master : public ScriptedAI
+class npc_dragonflayer_forge_master : public CreatureScript
 {
-    npc_dragonflayer_forge_master(Creature* creature) : ScriptedAI(creature)
-    {
-        _instance = creature->GetInstanceScript();
-        _forgeId = 0;
-    }
+    public:
+        npc_dragonflayer_forge_master() : CreatureScript("npc_dragonflayer_forge_master") { }
 
-    void Reset() override
-    {
-        if (!_forgeId)
-            _forgeId = GetForgeMasterType();
-
-        if (!me->IsAlive())
-            return;
-
-        if (_forgeId)
-            _instance->SetData(DATA_FORGE_1 + _forgeId - 1, NOT_STARTED);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (!_forgeId)
-            _forgeId = GetForgeMasterType();
-
-        if (_forgeId)
-            _instance->SetData(DATA_FORGE_1 + _forgeId - 1, DONE);
-    }
-
-    void JustEngagedWith(Unit* /*who*/) override
-    {
-        if (!_forgeId)
-            _forgeId = GetForgeMasterType();
-
-        if (_forgeId)
-            _instance->SetData(DATA_FORGE_1 + _forgeId - 1, IN_PROGRESS);
-
-        me->SetEmoteState(EMOTE_ONESHOT_NONE);
-    }
-
-    void UpdateAI(uint32 /*diff*/) override
-    {
-        if (!_forgeId)
-            _forgeId = GetForgeMasterType();
-
-        if (!UpdateVictim())
-            return;
-
-        DoMeleeAttackIfReady();
-    }
-
-private:
-    uint8 GetForgeMasterType()
-    {
-        float diff = 30.0f;
-        uint8 id = 0;
-
-        for (uint8 i = 0; i < 3; ++i)
+        struct npc_dragonflayer_forge_masterAI : public ScriptedAI
         {
-            if (GameObject* go = me->FindNearestGameObject(ForgeSearch[i], 30))
+            npc_dragonflayer_forge_masterAI(Creature* creature) : ScriptedAI(creature)
             {
-                if (me->IsWithinDist(go, diff, false))
-                {
-                    id = i + 1;
-                    diff = me->GetDistance2d(go);
-                }
+                _instance = creature->GetInstanceScript();
+                _forgeId = 0;
             }
-        }
-        return id > 0 && id < 4 ? id : 0;
-    }
 
-    InstanceScript* _instance;
-    uint8 _forgeId;
+            void Reset() override
+            {
+                if (!_forgeId)
+                    _forgeId = GetForgeMasterType();
+
+                if (!me->IsAlive())
+                    return;
+
+                if (_forgeId)
+                    _instance->SetData(DATA_FORGE_1 + _forgeId - 1, NOT_STARTED);
+            }
+
+            void JustDied(Unit* /*killer*/) override
+            {
+                if (!_forgeId)
+                    _forgeId = GetForgeMasterType();
+
+                if (_forgeId)
+                    _instance->SetData(DATA_FORGE_1 + _forgeId - 1, DONE);
+            }
+
+            void EnterCombat(Unit* /*who*/) override
+            {
+                if (!_forgeId)
+                    _forgeId = GetForgeMasterType();
+
+                if (_forgeId)
+                    _instance->SetData(DATA_FORGE_1 + _forgeId - 1, IN_PROGRESS);
+
+                me->SetEmoteState(EMOTE_ONESHOT_NONE);
+            }
+
+            void UpdateAI(uint32 /*diff*/) override
+            {
+                if (!_forgeId)
+                    _forgeId = GetForgeMasterType();
+
+                if (!UpdateVictim())
+                    return;
+
+                DoMeleeAttackIfReady();
+            }
+
+        private:
+            uint8 GetForgeMasterType()
+            {
+                float diff = 30.0f;
+                uint8 id = 0;
+
+                for (uint8 i = 0; i < 3; ++i)
+                {
+                    if (GameObject* go = me->FindNearestGameObject(ForgeSearch[i], 30))
+                    {
+                        if (me->IsWithinDist(go, diff, false))
+                        {
+                            id = i + 1;
+                            diff = me->GetDistance2d(go);
+                        }
+                    }
+                }
+                return id > 0 && id < 4 ? id : 0;
+            }
+
+            InstanceScript* _instance;
+            uint8 _forgeId;
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetUtgardeKeepAI<npc_dragonflayer_forge_masterAI>(creature);
+        }
+};
+
+enum TickingTimeBomb
+{
+    SPELL_TICKING_TIME_BOMB_EXPLODE = 59687
+};
+
+class spell_ticking_time_bomb : public SpellScriptLoader
+{
+    public:
+        spell_ticking_time_bomb() : SpellScriptLoader("spell_ticking_time_bomb") { }
+
+        class spell_ticking_time_bomb_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_ticking_time_bomb_AuraScript);
+
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                return ValidateSpellInfo({ SPELL_TICKING_TIME_BOMB_EXPLODE });
+            }
+
+            void HandleOnEffectRemove(AuraEffect const* /* aurEff */, AuraEffectHandleModes /* mode */)
+            {
+                if (GetCaster() == GetTarget())
+                    GetTarget()->CastSpell(GetTarget(), SPELL_TICKING_TIME_BOMB_EXPLODE, true);
+            }
+
+            void Register() override
+            {
+                OnEffectRemove += AuraEffectRemoveFn(spell_ticking_time_bomb_AuraScript::HandleOnEffectRemove, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY, AURA_EFFECT_HANDLE_REAL);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_ticking_time_bomb_AuraScript();
+        }
 };
 
 enum Fixate
@@ -111,25 +159,35 @@ enum Fixate
     SPELL_FIXATE_TRIGGER = 40415
 };
 
-// 40414 - Fixate
-class spell_fixate : public SpellScript
+class spell_fixate : public SpellScriptLoader
 {
-    PrepareSpellScript(spell_fixate);
+    public:
+        spell_fixate() : SpellScriptLoader("spell_fixate") { }
 
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo({ SPELL_FIXATE_TRIGGER });
-    }
+        class spell_fixate_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_fixate_SpellScript);
 
-    void HandleScriptEffect(SpellEffIndex /*effIndex*/)
-    {
-        GetHitUnit()->CastSpell(GetCaster(), SPELL_FIXATE_TRIGGER, true);
-    }
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                return ValidateSpellInfo({ SPELL_FIXATE_TRIGGER });
+            }
 
-    void Register() override
-    {
-        OnEffectHitTarget += SpellEffectFn(spell_fixate::HandleScriptEffect, EFFECT_2, SPELL_EFFECT_SCRIPT_EFFECT);
-    }
+            void HandleScriptEffect(SpellEffIndex /*effIndex*/)
+            {
+                GetHitUnit()->CastSpell(GetCaster(), SPELL_FIXATE_TRIGGER, true);
+            }
+
+            void Register() override
+            {
+                OnEffectHitTarget += SpellEffectFn(spell_fixate_SpellScript::HandleScriptEffect, EFFECT_2, SPELL_EFFECT_SCRIPT_EFFECT);
+            }
+        };
+
+        SpellScript* GetSpellScript() const override
+        {
+            return new spell_fixate_SpellScript();
+        }
 };
 
 enum SecondWind
@@ -138,36 +196,47 @@ enum SecondWind
 };
 
 // 42770 - Second Wind
-class spell_uk_second_wind : public AuraScript
+class spell_uk_second_wind : public SpellScriptLoader
 {
-    PrepareAuraScript(spell_uk_second_wind);
+    public:
+        spell_uk_second_wind() : SpellScriptLoader("spell_uk_second_wind") { }
 
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo({ SPELL_SECOND_WIND_TRIGGER });
-    }
+        class spell_uk_second_wind_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_uk_second_wind_AuraScript);
 
-    bool CheckProc(ProcEventInfo& eventInfo)
-    {
-        SpellInfo const* spellInfo = eventInfo.GetSpellInfo();
-        if (!spellInfo)
-            return false;
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                return ValidateSpellInfo({ SPELL_SECOND_WIND_TRIGGER });
+            }
 
-        return (spellInfo->GetAllEffectsMechanicMask() & ((1 << MECHANIC_ROOT) | (1 << MECHANIC_STUN))) != 0;
-    }
+            bool CheckProc(ProcEventInfo& eventInfo)
+            {
+                SpellInfo const* spellInfo = eventInfo.GetSpellInfo();
+                if (!spellInfo)
+                    return false;
 
-    void HandleProc(AuraEffect* aurEff, ProcEventInfo& eventInfo)
-    {
-        PreventDefaultAction();
-        Unit* caster = eventInfo.GetActionTarget();
-        caster->CastSpell(caster, SPELL_SECOND_WIND_TRIGGER, aurEff);
-    }
+                return (spellInfo->GetAllEffectsMechanicMask() & ((1 << MECHANIC_ROOT) | (1 << MECHANIC_STUN))) != 0;
+            }
 
-    void Register() override
-    {
-        DoCheckProc += AuraCheckProcFn(spell_uk_second_wind::CheckProc);
-        OnEffectProc += AuraEffectProcFn(spell_uk_second_wind::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
-    }
+            void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
+            {
+                PreventDefaultAction();
+                Unit* caster = eventInfo.GetActionTarget();
+                caster->CastSpell(caster, SPELL_SECOND_WIND_TRIGGER, true, nullptr, aurEff);
+            }
+
+            void Register() override
+            {
+                DoCheckProc += AuraCheckProcFn(spell_uk_second_wind_AuraScript::CheckProc);
+                OnEffectProc += AuraEffectProcFn(spell_uk_second_wind_AuraScript::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_uk_second_wind_AuraScript();
+        }
 };
 
 enum EnslavedProtoDrake
@@ -190,82 +259,95 @@ enum EnslavedProtoDrake
 
 const Position protodrakeCheckPos = {206.24f, -190.28f, 200.11f, 0.f};
 
-struct npc_enslaved_proto_drake : public ScriptedAI
+class npc_enslaved_proto_drake : public CreatureScript
 {
-    npc_enslaved_proto_drake(Creature* creature) : ScriptedAI(creature)
-    {
-        _setData = false;
-    }
+    public:
+        npc_enslaved_proto_drake() : CreatureScript("npc_enslaved_proto_drake") { }
 
-    void Reset() override
-    {
-        _events.Reset();
-        _events.ScheduleEvent(EVENT_REND, 2s, 3s);
-        _events.ScheduleEvent(EVENT_FLAME_BREATH, 5500ms, 7s);
-        _events.ScheduleEvent(EVENT_KNOCKAWAY, 3500ms, 6s);
-    }
-
-    void MovementInform(uint32 type, uint32 id) override
-    {
-        if (type == WAYPOINT_MOTION_TYPE && id == POINT_LAST)
+        struct npc_enslaved_proto_drakeAI : public ScriptedAI
         {
-            me->SetAnimTier(AnimTier::Ground);
-        }
-    }
-
-    void SetData(uint32 type, uint32 data) override
-    {
-        if (type == TYPE_PROTODRAKE_AT && data == DATA_PROTODRAKE_MOVE && !_setData && me->GetDistance(protodrakeCheckPos) < 5.0f)
-        {
-            _setData = true;
-            me->SetAnimTier(AnimTier::Fly);
-            me->GetMotionMaster()->MovePath(PATH_PROTODRAKE, false);
-        }
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        _events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        while (uint32 eventid = _events.ExecuteEvent())
-        {
-            switch (eventid)
+            npc_enslaved_proto_drakeAI(Creature* creature) : ScriptedAI(creature)
             {
-                case EVENT_REND:
-                    DoCast(SPELL_REND);
-                    _events.ScheduleEvent(EVENT_REND, 15s, 20s);
-                    break;
-                case EVENT_FLAME_BREATH:
-                    DoCast(SPELL_FLAME_BREATH);
-                    _events.ScheduleEvent(EVENT_FLAME_BREATH, 11s, 12s);
-                    break;
-                case EVENT_KNOCKAWAY:
-                    DoCast(SPELL_KNOCK_AWAY);
-                    _events.ScheduleEvent(EVENT_KNOCKAWAY, 7s, 8500ms);
-                    break;
-                default:
-                    break;
+                _setData = false;
             }
+
+            void Reset() override
+            {
+                _events.Reset();
+                _events.ScheduleEvent(EVENT_REND, urand(2000, 3000));
+                _events.ScheduleEvent(EVENT_FLAME_BREATH, urand(5500, 7000));
+                _events.ScheduleEvent(EVENT_KNOCKAWAY, urand(3500, 6000));
+            }
+
+            void MovementInform(uint32 type, uint32 id) override
+            {
+                if (type == WAYPOINT_MOTION_TYPE && id == POINT_LAST)
+                {
+                    me->SetAnimTier(UnitBytes1_Flags(UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER), false);
+                }
+            }
+
+            void SetData(uint32 type, uint32 data) override
+            {
+                if (type == TYPE_PROTODRAKE_AT && data == DATA_PROTODRAKE_MOVE && !_setData && me->GetDistance(protodrakeCheckPos) < 5.0f)
+                {
+                    _setData = true;
+                    me->SetAnimTier(UnitBytes1_Flags(UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER), true);
+                    me->GetMotionMaster()->MovePath(PATH_PROTODRAKE, false);
+                }
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                if (!UpdateVictim())
+                    return;
+
+                _events.Update(diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+
+                while (uint32 eventid = _events.ExecuteEvent())
+                {
+                    switch (eventid)
+                    {
+                        case EVENT_REND:
+                            DoCast(SPELL_REND);
+                            _events.ScheduleEvent(EVENT_REND, urand(15000, 20000));
+                            break;
+                        case EVENT_FLAME_BREATH:
+                            DoCast(SPELL_FLAME_BREATH);
+                            _events.ScheduleEvent(EVENT_FLAME_BREATH, urand(11000, 12000));
+                            break;
+                        case EVENT_KNOCKAWAY:
+                            DoCast(SPELL_KNOCK_AWAY);
+                            _events.ScheduleEvent(EVENT_KNOCKAWAY, urand(7000, 8500));
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                DoMeleeAttackIfReady();
+            }
+
+        private:
+            bool _setData;
+            EventMap _events;
+
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetUtgardeKeepAI<npc_enslaved_proto_drakeAI>(creature);
         }
-
-        DoMeleeAttackIfReady();
-    }
-
-private:
-    bool _setData;
-    EventMap _events;
 };
 
 void AddSC_utgarde_keep()
 {
-    RegisterUtgardeKeepCreatureAI(npc_dragonflayer_forge_master);
-    RegisterUtgardeKeepCreatureAI(npc_enslaved_proto_drake);
-    RegisterSpellScript(spell_fixate);
-    RegisterSpellScript(spell_uk_second_wind);
+    new npc_dragonflayer_forge_master();
+    new npc_enslaved_proto_drake();
+    new spell_ticking_time_bomb();
+    new spell_fixate();
+    new spell_uk_second_wind();
 }

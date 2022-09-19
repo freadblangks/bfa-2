@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -28,7 +28,6 @@ EndScriptData */
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "ScriptedCreature.h"
-#include "InstanceScript.h"
 
 enum Spells
 {
@@ -58,7 +57,7 @@ public:
 
     CreatureAI* GetAI(Creature* creature) const override
     {
-        return GetAuchenaiCryptsAI<boss_shirrak_the_dead_watcherAI>(creature);
+        return new boss_shirrak_the_dead_watcherAI(creature);
     }
 
     struct boss_shirrak_the_dead_watcherAI : public ScriptedAI
@@ -89,7 +88,7 @@ public:
             Initialize();
         }
 
-        void JustEngagedWith(Unit* /*who*/) override
+        void EnterCombat(Unit* /*who*/) override
         { }
 
         void JustSummoned(Creature* summoned) override
@@ -97,8 +96,8 @@ public:
             if (summoned && summoned->GetEntry() == NPC_FOCUS_FIRE)
             {
                 summoned->CastSpell(summoned, SPELL_FOCUS_FIRE_VISUAL, false);
-                summoned->SetFaction(me->GetFaction());
-                summoned->SetLevel(me->GetLevel());
+                summoned->SetFaction(me->getFaction());
+                summoned->SetLevel(me->getLevel());
                 summoned->AddUnitState(UNIT_STATE_ROOT);
 
                 if (Unit* pFocusedTarget = ObjectAccessor::GetUnit(*me, FocusedTargetGUID))
@@ -111,22 +110,21 @@ public:
             //Inhibitmagic_Timer
             if (Inhibitmagic_Timer <= diff)
             {
-                me->GetMap()->DoOnPlayers([this](Player* player)
-                {
-                    float dist = player->GetDistance(me);
-
-                    if (player->IsAlive() && dist < 45.f)
-                    {
-                        player->RemoveAurasDueToSpell(SPELL_INHIBITMAGIC);
-                        me->AddAura(SPELL_INHIBITMAGIC, player);
-                        if (dist < 35)
-                            me->AddAura(SPELL_INHIBITMAGIC, player);
-                        if (dist < 25)
-                            me->AddAura(SPELL_INHIBITMAGIC, player);
-                        if (dist < 15)
-                            me->AddAura(SPELL_INHIBITMAGIC, player);
-                    }
-                });
+                float dist;
+                Map::PlayerList const &PlayerList = me->GetMap()->GetPlayers();
+                for (Map::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
+                    if (Player* i_pl = i->GetSource())
+                        if (i_pl->IsAlive() && (dist = i_pl->GetDistance(me)) < 45)
+                        {
+                            i_pl->RemoveAurasDueToSpell(SPELL_INHIBITMAGIC);
+                            me->AddAura(SPELL_INHIBITMAGIC, i_pl);
+                            if (dist < 35)
+                                me->AddAura(SPELL_INHIBITMAGIC, i_pl);
+                            if (dist < 25)
+                                me->AddAura(SPELL_INHIBITMAGIC, i_pl);
+                            if (dist < 15)
+                                me->AddAura(SPELL_INHIBITMAGIC, i_pl);
+                        }
                 Inhibitmagic_Timer = 3000 + (rand32() % 1000);
             } else Inhibitmagic_Timer -= diff;
 
@@ -153,11 +151,11 @@ public:
             if (FocusFire_Timer <= diff)
             {
                 // Summon Focus Fire & Emote
-                Unit* target = SelectTarget(SelectTargetMethod::Random, 1);
+                Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1);
                 if (target && target->GetTypeId() == TYPEID_PLAYER && target->IsAlive())
                 {
                     FocusedTargetGUID = target->GetGUID();
-                    me->SummonCreature(NPC_FOCUS_FIRE, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN, 5500ms);
+                    me->SummonCreature(NPC_FOCUS_FIRE, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN, 5500);
                     Talk(EMOTE_FOCUSED, target);
                 }
                 FocusFire_Timer = 15000 + (rand32() % 5000);
@@ -176,7 +174,7 @@ public:
 
     CreatureAI* GetAI(Creature* creature) const override
     {
-        return GetAuchenaiCryptsAI<npc_focus_fireAI>(creature);
+        return new npc_focus_fireAI(creature);
     }
 
     struct npc_focus_fireAI : public ScriptedAI
@@ -200,7 +198,7 @@ public:
             Initialize();
         }
 
-        void JustEngagedWith(Unit* /*who*/) override
+        void EnterCombat(Unit* /*who*/) override
         { }
 
         void UpdateAI(uint32 diff) override

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -52,6 +52,7 @@ enum Say
 
 enum Spells
 {
+    SPELL_FEL_IMMOLATION            = 36051,
     SPELL_FELFIRE_SHOCK             = 35759,
     SPELL_KNOCK_AWAY                = 36512,
     SPELL_FELFIRE_LINE_UP           = 35770,
@@ -77,205 +78,217 @@ enum Events
     EVENT_DALLIAH_DEATH             = 13
 };
 
-struct boss_wrath_scryer_soccothrates : public BossAI
+class boss_wrath_scryer_soccothrates : public CreatureScript
 {
-    boss_wrath_scryer_soccothrates(Creature* creature) : BossAI(creature, DATA_SOCCOTHRATES)
-    {
-        preFight = false;
-        dalliahTaunt = false;
-        dalliahDeath = false;
-    }
+    public:
+        boss_wrath_scryer_soccothrates() : CreatureScript("boss_wrath_scryer_soccothrates") { }
 
-    void Reset() override
-    {
-        _Reset();
-        preFight = false;
-        dalliahTaunt = false;
-        dalliahDeath = false;
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        _JustDied();
-        Talk(SAY_DEATH);
-
-        if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
-            if (dalliah->IsAlive() && !dalliah->IsInCombat())
-                dalliah->AI()->SetData(1, 1);
-    }
-
-    void JustEngagedWith(Unit* who) override
-    {
-        BossAI::JustEngagedWith(who);
-        events.ScheduleEvent(EVENT_FELFIRE_SHOCK, 12s, 14s);
-        events.ScheduleEvent(EVENT_KNOCK_AWAY, 11s, 12s);
-        events.ScheduleEvent(EVENT_ME_FIRST, 6s);
-        Talk(SAY_AGGRO);
-        preFight = false;
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        Talk(SAY_SLAY);
-    }
-
-    void MoveInLineOfSight(Unit* who) override
-    {
-        if (instance->GetData(DATA_CONVERSATION) == NOT_STARTED && who->GetTypeId() == TYPEID_PLAYER && me->IsWithinDistInMap(who, 70.0f))
+        struct boss_wrath_scryer_soccothratesAI : public BossAI
         {
-            Talk(SAY_SOCCOTHRATES_CONVO_1);
-            instance->SetData(DATA_CONVERSATION, DONE);
-
-            preFight = true;
-            events.ScheduleEvent(EVENT_PREFIGHT_1, 2s);
-        }
-    }
-
-    void SetData(uint32 /*type*/, uint32 data) override
-    {
-        switch (data)
-        {
-            case 1:
-                events.ScheduleEvent(EVENT_DALLIAH_DEATH, 6s);
-                dalliahDeath = true;
-                break;
-            default:
-                break;
-        }
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-        {
-            if (preFight)
+            boss_wrath_scryer_soccothratesAI(Creature* creature) : BossAI(creature, DATA_SOCCOTHRATES)
             {
-                events.Update(diff);
+                preFight = false;
+                dalliahTaunt = false;
+                dalliahDeath = false;
+            }
 
-                while (uint32 eventId = events.ExecuteEvent())
+            void Reset() override
+            {
+                _Reset();
+                preFight = false;
+                dalliahTaunt = false;
+                dalliahDeath = false;
+                DoCast(me, SPELL_FEL_IMMOLATION);
+            }
+
+            void JustDied(Unit* /*killer*/) override
+            {
+                _JustDied();
+                Talk(SAY_DEATH);
+
+                if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
+                    if (dalliah->IsAlive() && !dalliah->IsInCombat())
+                        dalliah->AI()->SetData(1, 1);
+            }
+
+            void EnterCombat(Unit* /*who*/) override
+            {
+                _EnterCombat();
+                events.ScheduleEvent(EVENT_FELFIRE_SHOCK, urand(12000, 14000));
+                events.ScheduleEvent(EVENT_KNOCK_AWAY, urand(11000, 12000));
+                events.ScheduleEvent(EVENT_ME_FIRST, 6000);
+                Talk(SAY_AGGRO);
+                preFight = false;
+            }
+
+            void KilledUnit(Unit* /*victim*/) override
+            {
+                Talk(SAY_SLAY);
+            }
+
+            void MoveInLineOfSight(Unit* who) override
+            {
+                if (instance->GetData(DATA_CONVERSATION) == NOT_STARTED && who->GetTypeId() == TYPEID_PLAYER && me->IsWithinDistInMap(who, 70.0f))
                 {
-                    switch (eventId)
+                    Talk(SAY_SOCCOTHRATES_CONVO_1);
+                    instance->SetData(DATA_CONVERSATION, DONE);
+
+                    preFight = true;
+                    events.ScheduleEvent(EVENT_PREFIGHT_1, 2000);
+                }
+            }
+
+            void SetData(uint32 /*type*/, uint32 data) override
+            {
+                switch (data)
+                {
+                    case 1:
+                        events.ScheduleEvent(EVENT_DALLIAH_DEATH, 6000);
+                        dalliahDeath = true;
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                if (!UpdateVictim())
+                {
+                    if (preFight)
                     {
-                        case EVENT_PREFIGHT_1:
-                            if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
-                                dalliah->AI()->Talk(SAY_DALLIAH_CONVO_1);
-                            events.ScheduleEvent(EVENT_PREFIGHT_2, 3s);
-                            break;
-                        case EVENT_PREFIGHT_2:
-                            Talk(SAY_SOCCOTHRATES_CONVO_2);
-                            events.ScheduleEvent(EVENT_PREFIGHT_3, 3s);
-                            break;
-                        case EVENT_PREFIGHT_3:
-                            if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
-                                dalliah->AI()->Talk(SAY_DALLIAH_CONVO_2);
-                            events.ScheduleEvent(EVENT_PREFIGHT_4, 6s);
-                            break;
-                        case EVENT_PREFIGHT_4:
-                            Talk(SAY_SOCCOTHRATES_CONVO_3);
-                            events.ScheduleEvent(EVENT_PREFIGHT_5, 2s);
-                            break;
-                        case EVENT_PREFIGHT_5:
-                            if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
-                                dalliah->AI()->Talk(SAY_DALLIAH_CONVO_3);
-                            events.ScheduleEvent(EVENT_PREFIGHT_6, 3s);
-                            break;
-                        case EVENT_PREFIGHT_6:
-                            Talk(SAY_SOCCOTHRATES_CONVO_4);
-                            events.ScheduleEvent(EVENT_PREFIGHT_7, 2s);
-                            break;
-                        case EVENT_PREFIGHT_7:
-                            if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
-                                dalliah->GetMotionMaster()->MovePoint(0, 118.6048f, 96.84852f, 22.44115f);
-                            events.ScheduleEvent(EVENT_PREFIGHT_8, 4s);
-                            break;
-                        case EVENT_PREFIGHT_8:
-                            me->GetMotionMaster()->MovePoint(0, 122.1035f, 192.7203f, 22.44115f);
-                            events.ScheduleEvent(EVENT_PREFIGHT_9, 4s);
-                            break;
-                        case EVENT_PREFIGHT_9:
-                            if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
+                        events.Update(diff);
+
+                        while (uint32 eventId = events.ExecuteEvent())
+                        {
+                            switch (eventId)
                             {
-                                dalliah->SetFacingToObject(me);
-                                me->SetFacingToObject(dalliah);
-                                dalliah->SetHomePosition(dalliah->GetPositionX(), dalliah->GetPositionY(), dalliah->GetPositionZ(), 1.51737f);
-                                me->SetHomePosition(me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), 4.725722f);
-                                preFight = false;
+                                case EVENT_PREFIGHT_1:
+                                    if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
+                                        dalliah->AI()->Talk(SAY_DALLIAH_CONVO_1);
+                                    events.ScheduleEvent(EVENT_PREFIGHT_2, 3000);
+                                    break;
+                                case EVENT_PREFIGHT_2:
+                                    Talk(SAY_SOCCOTHRATES_CONVO_2);
+                                    events.ScheduleEvent(EVENT_PREFIGHT_3, 3000);
+                                    break;
+                                case EVENT_PREFIGHT_3:
+                                    if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
+                                        dalliah->AI()->Talk(SAY_DALLIAH_CONVO_2);
+                                    events.ScheduleEvent(EVENT_PREFIGHT_4, 6000);
+                                    break;
+                                case EVENT_PREFIGHT_4:
+                                    Talk(SAY_SOCCOTHRATES_CONVO_3);
+                                    events.ScheduleEvent(EVENT_PREFIGHT_5, 2000);
+                                    break;
+                                case EVENT_PREFIGHT_5:
+                                    if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
+                                        dalliah->AI()->Talk(SAY_DALLIAH_CONVO_3);
+                                    events.ScheduleEvent(EVENT_PREFIGHT_6, 3000);
+                                    break;
+                                case EVENT_PREFIGHT_6:
+                                    Talk(SAY_SOCCOTHRATES_CONVO_4);
+                                    events.ScheduleEvent(EVENT_PREFIGHT_7, 2000);
+                                    break;
+                                case EVENT_PREFIGHT_7:
+                                    if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
+                                        dalliah->GetMotionMaster()->MovePoint(0, 118.6048f, 96.84852f, 22.44115f);
+                                    events.ScheduleEvent(EVENT_PREFIGHT_8, 4000);
+                                    break;
+                                case EVENT_PREFIGHT_8:
+                                    me->GetMotionMaster()->MovePoint(0, 122.1035f, 192.7203f, 22.44115f);
+                                    events.ScheduleEvent(EVENT_PREFIGHT_9, 4000);
+                                    break;
+                                case EVENT_PREFIGHT_9:
+                                    if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
+                                    {
+                                        dalliah->SetFacingToObject(me);
+                                        me->SetFacingToObject(dalliah);
+                                        dalliah->SetHomePosition(dalliah->GetPositionX(), dalliah->GetPositionY(), dalliah->GetPositionZ(), 1.51737f);
+                                        me->SetHomePosition(me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), 4.725722f);
+                                        preFight = false;
+                                    }
+                                    break;
+                                default:
+                                    break;
                             }
-                            break;
-                        default:
-                            break;
+                        }
                     }
-                }
-            }
 
-            if (dalliahDeath)
-            {
+                    if (dalliahDeath)
+                    {
+                        events.Update(diff);
+
+                        while (uint32 eventId = events.ExecuteEvent())
+                        {
+                            switch (eventId)
+                            {
+                                case EVENT_DALLIAH_DEATH:
+                                    Talk(SAY_DALLIAH_DEATH);
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                    }
+
+                    return;
+                }
+
                 events.Update(diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
 
                 while (uint32 eventId = events.ExecuteEvent())
                 {
                     switch (eventId)
                     {
-                        case EVENT_DALLIAH_DEATH:
-                            Talk(SAY_DALLIAH_DEATH);
+                        case EVENT_FELFIRE_SHOCK:
+                            DoCastVictim(SPELL_FELFIRE_SHOCK, true);
+                            events.ScheduleEvent(EVENT_FELFIRE_SHOCK, urand(12000, 14000));
+                            break;
+                        case EVENT_KNOCK_AWAY:
+                            DoCast(me, SPELL_KNOCK_AWAY);
+                            Talk(SAY_KNOCK_AWAY);
+                            events.ScheduleEvent(EVENT_KNOCK_AWAY, urand(11000, 12000));
+                            break;
+                        case EVENT_ME_FIRST:
+                            if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
+                                if (dalliah->IsAlive() && !dalliah->IsInCombat())
+                                    dalliah->AI()->Talk(SAY_AGGRO_SOCCOTHRATES_FIRST);
                             break;
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
-            }
 
-            return;
-        }
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        while (uint32 eventId = events.ExecuteEvent())
-        {
-            switch (eventId)
-            {
-                case EVENT_FELFIRE_SHOCK:
-                    DoCastVictim(SPELL_FELFIRE_SHOCK, true);
-                    events.ScheduleEvent(EVENT_FELFIRE_SHOCK, 12s, 14s);
-                    break;
-                case EVENT_KNOCK_AWAY:
-                    DoCast(me, SPELL_KNOCK_AWAY);
-                    Talk(SAY_KNOCK_AWAY);
-                    events.ScheduleEvent(EVENT_KNOCK_AWAY, 11s, 12s);
-                    break;
-                case EVENT_ME_FIRST:
+                if (HealthBelowPct(25) && !dalliahTaunt)
+                {
                     if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
-                        if (dalliah->IsAlive() && !dalliah->IsInCombat())
-                            dalliah->AI()->Talk(SAY_AGGRO_SOCCOTHRATES_FIRST);
-                    break;
-                default:
-                    break;
+                        dalliah->AI()->Talk(SAY_SOCCOTHRATES_25_PERCENT);
+                    dalliahTaunt = true;
+                }
+
+                DoMeleeAttackIfReady();
             }
 
-            if (me->HasUnitState(UNIT_STATE_CASTING))
-                return;
-        }
+        private:
+            bool preFight;
+            bool dalliahTaunt;
+            bool dalliahDeath;
+        };
 
-        if (HealthBelowPct(25) && !dalliahTaunt)
+        CreatureAI* GetAI(Creature* creature) const override
         {
-            if (Creature* dalliah = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_DALLIAH)))
-                dalliah->AI()->Talk(SAY_SOCCOTHRATES_25_PERCENT);
-            dalliahTaunt = true;
+            return GetArcatrazAI<boss_wrath_scryer_soccothratesAI>(creature);
         }
-
-        DoMeleeAttackIfReady();
-    }
-
-private:
-    bool preFight;
-    bool dalliahTaunt;
-    bool dalliahDeath;
 };
 
 void AddSC_boss_wrath_scryer_soccothrates()
 {
-    RegisterArcatrazCreatureAI(boss_wrath_scryer_soccothrates);
+    new boss_wrath_scryer_soccothrates();
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -27,33 +27,33 @@ uint32 const EncounterCount = 4;
 
 enum TEDataTypes
 {
-    // Encounter States
-    DATA_ALAR                           = 0,
-    DATA_VOID_REAVER                    = 1,
-    DATA_SOLARIAN                       = 2,
-    DATA_KAELTHAS                       = 3,
+    // Encounter States/Boss GUIDs
+    DATA_KAELTHAS                       = 0,
+    DATA_ALAR                           = 1,
+    DATA_HIGH_ASTROMANCER_SOLARIAN      = 2,
+    DATA_VOID_REAVER                    = 3,
+
+    DATA_ASTROMANCER                    = 4,
+    DATA_GRANDASTROMANCERCAPERNIAN      = 5,
+    DATA_LORDSANGUINAR                  = 6,
+    DATA_MASTERENGINEERTELONICUS        = 7,
+    DATA_THALADREDTHEDARKENER           = 8,
 
     // Additional Data
-    DATA_CAPERNIAN                      = 4,
-    DATA_SANGUINAR                      = 5,
-    DATA_TELONICUS                      = 6,
-    DATA_THALADRED                      = 7,
-
-    DATA_KAEL_STATUE_LEFT               = 8,
-    DATA_KAEL_STATUE_RIGHT              = 9,
-    DATA_TEMPEST_BRIDGE_WINDOW          = 10
+    DATA_KAEL_STATUE_LEFT               = 9,
+    DATA_KAEL_STATUE_RIGHT              = 10,
+    DATA_TEMPEST_BRIDGE_WINDOW          = 11
 };
 
 enum TECreatureIds
 {
-    NPC_ALAR                            = 19514,
-    NPC_VOID_REAVER                     = 19516,
-    NPC_SOLARIAN                        = 18805,
-    NPC_KAELTHAS                        = 19622,
     NPC_SANGUINAR                       = 20060,
     NPC_CAPERNIAN                       = 20062,
     NPC_TELONICUS                       = 20063,
-    NPC_THALADRED                       = 20064
+    NPC_THALADRED                       = 20064,
+    NPC_KAELTHAS                        = 19622,
+    NPC_HIGH_ASTROMANCER_SOLARIAN       = 18805,
+    NPC_ALAR                            = 19514
 };
 
 enum TEGameObjectIds
@@ -65,12 +65,10 @@ enum TEGameObjectIds
     GO_ARCANE_DOOR_RIGHT                = 184325
 };
 
-template <class AI, class T>
-inline AI* GetTheEyeAI(T* obj)
+template<typename AI>
+inline AI* GetTheEyeAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, TheEyeScriptName);
+    return GetInstanceAI<AI>(creature, TheEyeScriptName);
 }
-
-#define RegisterTheEyeCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetTheEyeAI)
 
 #endif

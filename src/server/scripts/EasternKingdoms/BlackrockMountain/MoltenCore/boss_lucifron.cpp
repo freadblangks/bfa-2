@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,9 +22,10 @@ SDComment:
 SDCategory: Molten Core
 EndScriptData */
 
+#include "ObjectMgr.h"
 #include "ScriptMgr.h"
-#include "molten_core.h"
 #include "ScriptedCreature.h"
+#include "molten_core.h"
 
 enum Spells
 {
@@ -40,59 +41,70 @@ enum Events
     EVENT_SHADOW_SHOCK      = 3,
 };
 
-struct boss_lucifron : public BossAI
+class boss_lucifron : public CreatureScript
 {
-    boss_lucifron(Creature* creature) : BossAI(creature, BOSS_LUCIFRON)
-    {
-    }
+    public:
+        boss_lucifron() : CreatureScript("boss_lucifron") { }
 
-    void JustEngagedWith(Unit* victim) override
-    {
-        BossAI::JustEngagedWith(victim);
-        events.ScheduleEvent(EVENT_IMPENDING_DOOM, 10s);
-        events.ScheduleEvent(EVENT_LUCIFRON_CURSE, 20s);
-        events.ScheduleEvent(EVENT_SHADOW_SHOCK, 6s);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        while (uint32 eventId = events.ExecuteEvent())
+        struct boss_lucifronAI : public BossAI
         {
-            switch (eventId)
+            boss_lucifronAI(Creature* creature) : BossAI(creature, BOSS_LUCIFRON)
             {
-                case EVENT_IMPENDING_DOOM:
-                    DoCastVictim(SPELL_IMPENDING_DOOM);
-                    events.ScheduleEvent(EVENT_IMPENDING_DOOM, 20s);
-                    break;
-                case EVENT_LUCIFRON_CURSE:
-                    DoCastVictim(SPELL_LUCIFRON_CURSE);
-                    events.ScheduleEvent(EVENT_LUCIFRON_CURSE, 15s);
-                    break;
-                case EVENT_SHADOW_SHOCK:
-                    DoCastVictim(SPELL_SHADOW_SHOCK);
-                    events.ScheduleEvent(EVENT_SHADOW_SHOCK, 6s);
-                    break;
-                default:
-                    break;
             }
 
-            if (me->HasUnitState(UNIT_STATE_CASTING))
-                return;
-        }
+            void EnterCombat(Unit* victim) override
+            {
+                BossAI::EnterCombat(victim);
+                events.ScheduleEvent(EVENT_IMPENDING_DOOM, 10000);
+                events.ScheduleEvent(EVENT_LUCIFRON_CURSE, 20000);
+                events.ScheduleEvent(EVENT_SHADOW_SHOCK, 6000);
+            }
 
-        DoMeleeAttackIfReady();
-    }
+            void UpdateAI(uint32 diff) override
+            {
+                if (!UpdateVictim())
+                    return;
+
+                events.Update(diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+
+                while (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                        case EVENT_IMPENDING_DOOM:
+                            DoCastVictim(SPELL_IMPENDING_DOOM);
+                            events.ScheduleEvent(EVENT_IMPENDING_DOOM, 20000);
+                            break;
+                        case EVENT_LUCIFRON_CURSE:
+                            DoCastVictim(SPELL_LUCIFRON_CURSE);
+                            events.ScheduleEvent(EVENT_LUCIFRON_CURSE, 15000);
+                            break;
+                        case EVENT_SHADOW_SHOCK:
+                            DoCastVictim(SPELL_SHADOW_SHOCK);
+                            events.ScheduleEvent(EVENT_SHADOW_SHOCK, 6000);
+                            break;
+                        default:
+                            break;
+                    }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
+                }
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetMoltenCoreAI<boss_lucifronAI>(creature);
+        }
 };
 
 void AddSC_boss_lucifron()
 {
-    RegisterMoltenCoreCreatureAI(boss_lucifron);
+    new boss_lucifron();
 }

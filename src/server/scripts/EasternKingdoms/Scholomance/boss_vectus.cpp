@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,8 +15,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "scholomance.h"
 #include "ScriptMgr.h"
+#include "scholomance.h"
 #include "ScriptedCreature.h"
 
 enum Emotes
@@ -53,19 +53,19 @@ public:
             events.Reset();
         }
 
-        void JustEngagedWith(Unit* /*who*/) override
+        void EnterCombat(Unit* /*who*/) override
         {
-            events.ScheduleEvent(EVENT_FIRE_SHIELD, 2s);
-            events.ScheduleEvent(EVENT_BLAST_WAVE, 14s);
+            events.ScheduleEvent(EVENT_FIRE_SHIELD, 2000);
+            events.ScheduleEvent(EVENT_BLAST_WAVE, 14000);
         }
 
-        void DamageTaken(Unit* /*attacker*/, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo = nullptr*/) override
+        void DamageTaken(Unit* /*attacker*/, uint32& damage) override
         {
             if (me->HealthBelowPctDamaged(25, damage))
             {
                 DoCast(me, SPELL_FRENZY);
                 Talk(EMOTE_FRENZY);
-                events.ScheduleEvent(EVENT_FRENZY, 24s);
+                events.ScheduleEvent(EVENT_FRENZY, 24000);
             }
         }
 
@@ -85,16 +85,16 @@ public:
                 {
                     case EVENT_FIRE_SHIELD:
                         DoCast(me, SPELL_FIRE_SHIELD);
-                        events.ScheduleEvent(EVENT_FIRE_SHIELD, 90s);
+                        events.ScheduleEvent(EVENT_FIRE_SHIELD, 90000);
                         break;
                     case EVENT_BLAST_WAVE:
                         DoCast(me, SPELL_BLAST_WAVE);
-                        events.ScheduleEvent(EVENT_BLAST_WAVE, 12s);
+                        events.ScheduleEvent(EVENT_BLAST_WAVE, 12000);
                         break;
                     case EVENT_FRENZY:
                         DoCast(me, SPELL_FRENZY);
                         Talk(EMOTE_FRENZY);
-                        events.ScheduleEvent(EVENT_FRENZY, 24s);
+                        events.ScheduleEvent(EVENT_FRENZY, 24000);
                         break;
                     default:
                         break;

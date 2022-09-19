@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -69,11 +69,11 @@ public:
             Initialize();
         }
 
-        void JustEngagedWith(Unit* /*who*/) override { }
+        void EnterCombat(Unit* /*who*/) override { }
 
         void JustDied(Unit* /*killer*/) override
         {
-            me->SummonCreature(12238, 28.1887f, 62.3964f, -123.161f, 4.31096f, TEMPSUMMON_TIMED_DESPAWN, 10min);
+            me->SummonCreature(12238, 28.067f, 61.875f, -123.405f, 4.67f, TEMPSUMMON_TIMED_DESPAWN, 600000);
         }
 
         void UpdateAI(uint32 diff) override
@@ -92,7 +92,7 @@ public:
             //BoulderTimer
             if (BoulderTimer <= diff)
             {
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
+                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
                     DoCast(target, SPELL_BOULDER);
                 BoulderTimer = 10000;
             }

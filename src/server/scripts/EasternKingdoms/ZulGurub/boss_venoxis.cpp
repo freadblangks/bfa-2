@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,9 +15,11 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "zulgurub.h"
-#include "ScriptedCreature.h"
+#include "ObjectMgr.h"
 #include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "Spell.h"
+#include "zulgurub.h"
 
 enum Yells
 {
@@ -39,61 +41,72 @@ enum Events
 {
 };
 
-struct boss_venoxis : public BossAI
+class boss_venoxis : public CreatureScript
 {
-    boss_venoxis(Creature* creature) : BossAI(creature, DATA_VENOXIS) { }
+    public:
+        boss_venoxis() : CreatureScript("boss_venoxis") { }
 
-    void Reset() override
-    {
-        _Reset();
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        _JustDied();
-        Talk(SAY_DEATH);
-    }
-
-    void JustEngagedWith(Unit* who) override
-    {
-        BossAI::JustEngagedWith(who);
-        Talk(SAY_AGGRO);
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim->GetTypeId() == TYPEID_PLAYER)
-            Talk(SAY_PLAYER_KILL);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-    /*
-        while (uint32 eventId = events.ExecuteEvent())
+        struct boss_venoxisAI : public BossAI
         {
-            switch (eventId)
+            boss_venoxisAI(Creature* creature) : BossAI(creature, DATA_VENOXIS) { }
+
+            void Reset() override
             {
-                default:
-                    break;
+                _Reset();
             }
 
-            if (me->HasUnitState(UNIT_STATE_CASTING))
-                return;
-        }
-    */
+            void EnterCombat(Unit* /*who*/) override
+            {
+                _EnterCombat();
+                Talk(SAY_AGGRO);
+            }
 
-        DoMeleeAttackIfReady();
-    }
+            void JustDied(Unit* /*killer*/) override
+            {
+                _JustDied();
+                Talk(SAY_DEATH);
+            }
+
+            void KilledUnit(Unit* victim) override
+            {
+                if (victim->GetTypeId() == TYPEID_PLAYER)
+                    Talk(SAY_PLAYER_KILL);
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                if (!UpdateVictim())
+                    return;
+
+                events.Update(diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+            /*
+                while (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                        default:
+                            break;
+                    }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
+                }
+            */
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetZulGurubAI<boss_venoxisAI>(creature);
+        }
 };
 
 void AddSC_boss_venoxis()
 {
-    RegisterZulGurubCreatureAI(boss_venoxis);
+    new boss_venoxis();
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,9 +17,9 @@
 
 #include "ScriptMgr.h"
 #include "GameObject.h"
-#include "GameObjectAI.h"
 #include "InstanceScript.h"
 #include "MotionMaster.h"
+#include "MoveSplineInit.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "scholomance.h"
@@ -86,17 +86,17 @@ class boss_kirtonos_the_herald : public CreatureScript
                 _Reset();
             }
 
-            void JustEngagedWith(Unit* who) override
+            void EnterCombat(Unit* /*who*/) override
             {
-                events.ScheduleEvent(EVENT_SWOOP, 8s, 8s);
-                events.ScheduleEvent(EVENT_WING_FLAP, 15s, 15s);
-                events.ScheduleEvent(EVENT_PIERCE_ARMOR, 18s, 18s);
-                events.ScheduleEvent(EVENT_DISARM, 22s, 22s);
-                events.ScheduleEvent(EVENT_SHADOW_BOLT, 42s, 42s);
-                events.ScheduleEvent(EVENT_CURSE_OF_TONGUES, 53s, 53s);
-                events.ScheduleEvent(EVENT_DOMINATE_MIND, 34s, 48s);
-                events.ScheduleEvent(EVENT_KIRTONOS_TRANSFORM, 20s, 20s);
-                BossAI::JustEngagedWith(who);
+                events.ScheduleEvent(EVENT_SWOOP, urand(8000, 8000));
+                events.ScheduleEvent(EVENT_WING_FLAP, urand(15000, 15000));
+                events.ScheduleEvent(EVENT_PIERCE_ARMOR, urand(18000, 18000));
+                events.ScheduleEvent(EVENT_DISARM, urand(22000, 22000));
+                events.ScheduleEvent(EVENT_SHADOW_BOLT, urand(42000, 42000));
+                events.ScheduleEvent(EVENT_CURSE_OF_TONGUES, urand(53000, 53000));
+                events.ScheduleEvent(EVENT_DOMINATE_MIND, urand(34000, 48000));
+                events.ScheduleEvent(EVENT_KIRTONOS_TRANSFORM, urand(20000, 20000));
+                _EnterCombat();
             }
 
             void JustDied(Unit* /*killer*/) override
@@ -120,15 +120,15 @@ class boss_kirtonos_the_herald : public CreatureScript
                     brazier->ResetDoorOrButton();
                     brazier->SetGoState(GO_STATE_READY);
                 }
-                me->DespawnOrUnsummon(5s);
+                me->DespawnOrUnsummon(5000);
             }
 
-            void IsSummonedBy(WorldObject* /*summoner*/) override
+            void IsSummonedBy(Unit* /*summoner*/) override
             {
-                events.ScheduleEvent(INTRO_1, 500ms);
+                events.ScheduleEvent(INTRO_1, 500);
                 me->SetDisableGravity(true);
                 me->SetReactState(REACT_PASSIVE);
-                me->SetUnitFlag(UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_UNINTERACTIBLE);
+                me->AddUnitFlag(UnitFlags(UNIT_FLAG_NON_ATTACKABLE|UNIT_FLAG_NOT_SELECTABLE));
                 Talk(EMOTE_SUMMONED);
             }
 
@@ -140,7 +140,9 @@ class boss_kirtonos_the_herald : public CreatureScript
             void MovementInform(uint32 type, uint32 id) override
             {
                 if (type == WAYPOINT_MOTION_TYPE && id == POINT_KIRTONOS_LAND)
-                    events.ScheduleEvent(INTRO_2, 1500ms);
+                {
+                    events.ScheduleEvent(INTRO_2, 1500);
+                }
             }
 
             void UpdateAI(uint32 diff) override
@@ -158,13 +160,13 @@ class boss_kirtonos_the_herald : public CreatureScript
                                 break;
                             case INTRO_2:
                                 me->GetMotionMaster()->MovePoint(0, PosMove[0]);
-                                events.ScheduleEvent(INTRO_3, 1s);
+                                events.ScheduleEvent(INTRO_3, 1000);
                                 break;
                             case INTRO_3:
                                 if (GameObject* gate = ObjectAccessor::GetGameObject(*me, instance->GetGuidData(GO_GATE_KIRTONOS)))
                                     gate->SetGoState(GO_STATE_READY);
                                 me->SetFacingTo(0.01745329f);
-                                events.ScheduleEvent(INTRO_4, 3s);
+                                events.ScheduleEvent(INTRO_4, 3000);
                                 break;
                             case INTRO_4:
                                 if (GameObject* brazier = ObjectAccessor::GetGameObject(*me, instance->GetGuidData(GO_BRAZIER_OF_THE_HERALD)))
@@ -173,14 +175,14 @@ class boss_kirtonos_the_herald : public CreatureScript
                                 me->SetDisableGravity(false);
                                 DoCast(me, SPELL_KIRTONOS_TRANSFORM);
                                 me->SetCanFly(false);
-                                events.ScheduleEvent(INTRO_5, 1s);
+                                events.ScheduleEvent(INTRO_5, 1000);
                                 break;
                             case INTRO_5:
                                 me->HandleEmoteCommand(EMOTE_ONESHOT_ROAR);
                                 me->SetVirtualItem(0, uint32(WEAPON_KIRTONOS_STAFF));
-                                me->RemoveUnitFlag(UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_UNINTERACTIBLE);
+                                me->RemoveUnitFlag(UnitFlags(UNIT_FLAG_NON_ATTACKABLE|UNIT_FLAG_NOT_SELECTABLE));
                                 me->SetReactState(REACT_AGGRESSIVE);
-                                events.ScheduleEvent(INTRO_6, 5s);
+                                events.ScheduleEvent(INTRO_6, 5000);
                                 break;
                             case INTRO_6:
                                 me->GetMotionMaster()->MovePoint(0, PosMove[1]);
@@ -202,31 +204,31 @@ class boss_kirtonos_the_herald : public CreatureScript
                     {
                         case EVENT_SWOOP:
                             DoCast(me, SPELL_SWOOP);
-                            events.ScheduleEvent(EVENT_SWOOP, 15s);
+                            events.ScheduleEvent(EVENT_SWOOP, 15000);
                             break;
                         case EVENT_WING_FLAP:
                             DoCast(me, SPELL_WING_FLAP);
-                            events.ScheduleEvent(EVENT_WING_FLAP, 13s);
+                            events.ScheduleEvent(EVENT_WING_FLAP, 13000);
                             break;
                         case EVENT_PIERCE_ARMOR:
                             DoCastVictim(SPELL_PIERCE_ARMOR, true);
-                            events.ScheduleEvent(EVENT_PIERCE_ARMOR, 12s);
+                            events.ScheduleEvent(EVENT_PIERCE_ARMOR, 12000);
                             break;
                         case EVENT_DISARM:
                             DoCastVictim(SPELL_DISARM, true);
-                            events.ScheduleEvent(EVENT_DISARM, 11s);
+                            events.ScheduleEvent(EVENT_DISARM, 11000);
                             break;
                         case EVENT_SHADOW_BOLT:
                             DoCastVictim(SPELL_SHADOW_BOLT, true);
-                            events.ScheduleEvent(EVENT_SHADOW_BOLT, 42s);
+                            events.ScheduleEvent(EVENT_SHADOW_BOLT, 42000);
                             break;
                         case EVENT_CURSE_OF_TONGUES:
                             DoCastVictim(SPELL_CURSE_OF_TONGUES, true);
-                            events.ScheduleEvent(EVENT_CURSE_OF_TONGUES, 35s);
+                            events.ScheduleEvent(EVENT_CURSE_OF_TONGUES, 35000);
                             break;
                         case EVENT_DOMINATE_MIND:
                             DoCastVictim(SPELL_DOMINATE_MIND, true);
-                            events.ScheduleEvent(EVENT_DOMINATE_MIND, 44s, 48s);
+                            events.ScheduleEvent(EVENT_DOMINATE_MIND, urand(44000, 48000));
                             break;
                         case EVENT_KIRTONOS_TRANSFORM:
                             if (me->HasAura(SPELL_KIRTONOS_TRANSFORM))
@@ -241,7 +243,7 @@ class boss_kirtonos_the_herald : public CreatureScript
                                 me->SetVirtualItem(0, uint32(WEAPON_KIRTONOS_STAFF));
                                 me->SetCanFly(true);
                             }
-                            events.ScheduleEvent(EVENT_KIRTONOS_TRANSFORM, 16s, 18s);
+                            events.ScheduleEvent(EVENT_KIRTONOS_TRANSFORM, urand(16000, 18000));
                             break;
                         default:
                             break;
@@ -281,22 +283,12 @@ class go_brazier_of_the_herald : public GameObjectScript
     public:
         go_brazier_of_the_herald() : GameObjectScript("go_brazier_of_the_herald") { }
 
-        struct go_brazier_of_the_heraldAI : public GameObjectAI
+        bool OnGossipHello(Player* player, GameObject* go) override
         {
-            go_brazier_of_the_heraldAI(GameObject* go) : GameObjectAI(go) { }
-
-            bool OnGossipHello(Player* player) override
-            {
-                me->UseDoorOrButton();
-                me->PlayDirectSound(SOUND_SCREECH, nullptr);
-                player->SummonCreature(NPC_KIRTONOS, PosSummon[0], TEMPSUMMON_DEAD_DESPAWN, 15min);
-                return true;
-            }
-        };
-
-        GameObjectAI* GetAI(GameObject* go) const override
-        {
-            return GetScholomanceAI<go_brazier_of_the_heraldAI>(go);
+            go->UseDoorOrButton();
+            go->PlayDirectSound(SOUND_SCREECH, 0);
+            player->SummonCreature(NPC_KIRTONOS, PosSummon[0], TEMPSUMMON_DEAD_DESPAWN, 900000);
+            return true;
         }
 };
 

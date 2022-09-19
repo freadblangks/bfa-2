@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -24,9 +24,8 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "InstanceScript.h"
 #include "Log.h"
+#include "ObjectAccessor.h"
 #include "ScriptedCreature.h"
-#include "SpellAuraEffects.h"
-#include "SpellScript.h"
 #include "sunwell_plateau.h"
 
 enum Quotes
@@ -117,7 +116,7 @@ public:
             instance->SetBossState(DATA_BRUTALLUS, NOT_STARTED);
         }
 
-        void JustEngagedWith(Unit* /*who*/) override
+        void EnterCombat(Unit* /*who*/) override
         {
             Talk(YELL_AGGRO);
 
@@ -136,7 +135,7 @@ public:
             instance->SetBossState(DATA_BRUTALLUS, DONE);
             float x, y, z;
             me->GetPosition(x, y, z);
-            me->SummonCreature(NPC_FELMYST, x, y, z + 30, me->GetOrientation(), TEMPSUMMON_MANUAL_DESPAWN);
+            me->SummonCreature(NPC_FELMYST, x, y, z + 30, me->GetOrientation(), TEMPSUMMON_MANUAL_DESPAWN, 0);
         }
 
         void EnterEvadeMode(EvadeReason why) override
@@ -150,15 +149,14 @@ public:
             if (!Intro || IsIntro)
                 return;
 
-            if (Creature* Madrigosa = instance->GetCreature(DATA_MADRIGOSA))
+            if (Creature* Madrigosa = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_MADRIGOSA)))
             {
                 Madrigosa->Respawn();
                 Madrigosa->setActive(true);
-                Madrigosa->SetFarVisible(true);
                 IsIntro = true;
                 Madrigosa->SetMaxHealth(me->GetMaxHealth());
                 Madrigosa->SetHealth(me->GetMaxHealth());
-                me->SetUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
+                me->AddUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
                 me->Attack(Madrigosa, true);
                 Madrigosa->Attack(me, true);
             }
@@ -186,7 +184,7 @@ public:
 
         void DoIntro()
         {
-            Creature* Madrigosa = instance->GetCreature(DATA_MADRIGOSA);
+            Creature* Madrigosa = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_MADRIGOSA));
             if (!Madrigosa)
                 return;
 
@@ -198,8 +196,8 @@ public:
                     ++IntroPhase;
                     break;
                 case 1:
-                    me->SetFacingToObject(Madrigosa);
-                    Madrigosa->SetFacingToObject(me);
+                    me->SetInFront(Madrigosa);
+                    Madrigosa->SetInFront(me);
                     Madrigosa->AI()->Talk(YELL_MADR_INTRO, me);
                     IntroPhaseTimer = 9000;
                     ++IntroPhase;
@@ -236,7 +234,7 @@ public:
                     ++IntroPhase;
                     break;
                 case 7:
-                    Unit::Kill(me, Madrigosa);
+                    me->Kill(Madrigosa);
                     Madrigosa->AI()->Talk(YELL_MADR_DEATH);
                     me->SetFullHealth();
                     me->AttackStop();
@@ -289,7 +287,7 @@ public:
                 {
                     if (IntroFrostBoltTimer <= diff)
                     {
-                        if (Creature* Madrigosa = instance->GetCreature(DATA_MADRIGOSA))
+                        if (Creature* Madrigosa = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_MADRIGOSA)))
                         {
                             Madrigosa->CastSpell(me, SPELL_INTRO_FROSTBOLT, true);
                             IntroFrostBoltTimer = 2000;
@@ -323,8 +321,14 @@ public:
 
             if (BurnTimer <= diff)
             {
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 100.0f, true, true, -SPELL_BURN))
-                    target->CastSpell(target, SPELL_BURN, true);
+                std::list<Unit*> targets;
+                SelectTargetList(targets, 10, SELECT_TARGET_RANDOM, 100, true);
+                for (std::list<Unit*>::const_iterator i = targets.begin(); i != targets.end(); ++i)
+                    if (!(*i)->HasAura(SPELL_BURN))
+                    {
+                        (*i)->CastSpell((*i), SPELL_BURN, true);
+                        break;
+                    }
                 BurnTimer = urand(60000, 180000);
             } else BurnTimer -= diff;
 
@@ -345,47 +349,7 @@ public:
     }
 };
 
-// 46394 - Burn
-class spell_brutallus_burn : public AuraScript
-{
-    PrepareAuraScript(spell_brutallus_burn);
-
-    void HandleEffectPeriodicUpdate(AuraEffect* aurEff)
-    {
-        if (aurEff->GetTickNumber() % 11 == 0)
-            aurEff->SetAmount(aurEff->GetAmount() * 2);
-    }
-
-    void Register() override
-    {
-        OnEffectUpdatePeriodic += AuraEffectUpdatePeriodicFn(spell_brutallus_burn::HandleEffectPeriodicUpdate, EFFECT_0, SPELL_AURA_PERIODIC_DAMAGE);
-    }
-};
-
-// 45185 - Stomp
-class spell_brutallus_stomp : public SpellScript
-{
-    PrepareSpellScript(spell_brutallus_stomp);
-
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo({ SPELL_BURN });
-    }
-
-    void HandleScript(SpellEffIndex /*effIndex*/)
-    {
-        GetHitUnit()->RemoveAurasDueToSpell(SPELL_BURN);
-    }
-
-    void Register() override
-    {
-        OnEffectHitTarget += SpellEffectFn(spell_brutallus_stomp::HandleScript, EFFECT_2, SPELL_EFFECT_SCRIPT_EFFECT);
-    }
-};
-
 void AddSC_boss_brutallus()
 {
     new boss_brutallus();
-    RegisterSpellScript(spell_brutallus_burn);
-    RegisterSpellScript(spell_brutallus_stomp);
 }

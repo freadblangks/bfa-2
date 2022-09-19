@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,8 +16,8 @@
  */
 
 #include "ScriptMgr.h"
-#include "blackwing_lair.h"
 #include "ScriptedCreature.h"
+#include "blackwing_lair.h"
 
 enum Spells
 {
@@ -33,58 +33,69 @@ enum Events
     EVENT_FLAMEBUFFET       = 3
 };
 
-struct boss_firemaw : public BossAI
+class boss_firemaw : public CreatureScript
 {
-    boss_firemaw(Creature* creature) : BossAI(creature, DATA_FIREMAW) { }
+public:
+    boss_firemaw() : CreatureScript("boss_firemaw") { }
 
-    void JustEngagedWith(Unit* who) override
+    struct boss_firemawAI : public BossAI
     {
-        BossAI::JustEngagedWith(who);
+        boss_firemawAI(Creature* creature) : BossAI(creature, DATA_FIREMAW) { }
 
-        events.ScheduleEvent(EVENT_SHADOWFLAME, 10s, 20s);
-        events.ScheduleEvent(EVENT_WINGBUFFET, 30s);
-        events.ScheduleEvent(EVENT_FLAMEBUFFET, 5s);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        while (uint32 eventId = events.ExecuteEvent())
+        void EnterCombat(Unit* /*who*/) override
         {
-            switch (eventId)
-            {
-                case EVENT_SHADOWFLAME:
-                    DoCastVictim(SPELL_SHADOWFLAME);
-                    events.ScheduleEvent(EVENT_SHADOWFLAME, 10s, 20s);
-                    break;
-                case EVENT_WINGBUFFET:
-                    DoCastVictim(SPELL_WINGBUFFET);
-                    if (GetThreat(me->GetVictim()))
-                        ModifyThreatByPercent(me->GetVictim(), -75);
-                    events.ScheduleEvent(EVENT_WINGBUFFET, 30s);
-                    break;
-                case EVENT_FLAMEBUFFET:
-                    DoCastVictim(SPELL_FLAMEBUFFET);
-                    events.ScheduleEvent(EVENT_FLAMEBUFFET, 5s);
-                    break;
-            }
+            _EnterCombat();
+
+            events.ScheduleEvent(EVENT_SHADOWFLAME, urand(10000, 20000));
+            events.ScheduleEvent(EVENT_WINGBUFFET, 30000);
+            events.ScheduleEvent(EVENT_FLAMEBUFFET, 5000);
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim())
+                return;
+
+            events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
                 return;
-        }
 
-        DoMeleeAttackIfReady();
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case EVENT_SHADOWFLAME:
+                        DoCastVictim(SPELL_SHADOWFLAME);
+                        events.ScheduleEvent(EVENT_SHADOWFLAME, urand(10000, 20000));
+                        break;
+                    case EVENT_WINGBUFFET:
+                        DoCastVictim(SPELL_WINGBUFFET);
+                        if (DoGetThreat(me->GetVictim()))
+                            DoModifyThreatPercent(me->GetVictim(), -75);
+                        events.ScheduleEvent(EVENT_WINGBUFFET, 30000);
+                        break;
+                    case EVENT_FLAMEBUFFET:
+                        DoCastVictim(SPELL_FLAMEBUFFET);
+                        events.ScheduleEvent(EVENT_FLAMEBUFFET, 5000);
+                        break;
+                }
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return GetBlackwingLairAI<boss_firemawAI>(creature);
     }
 };
 
 void AddSC_boss_firemaw()
 {
-    RegisterBlackwingLairCreatureAI(boss_firemaw);
+    new boss_firemaw();
 }

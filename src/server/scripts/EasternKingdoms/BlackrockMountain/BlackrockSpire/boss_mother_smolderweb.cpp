@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -32,65 +32,77 @@ enum Events
     EVENT_MOTHERS_MILK              = 2,
 };
 
-struct boss_mother_smolderweb : public BossAI
+class boss_mother_smolderweb : public CreatureScript
 {
-    boss_mother_smolderweb(Creature* creature) : BossAI(creature, DATA_MOTHER_SMOLDERWEB) { }
+public:
+    boss_mother_smolderweb() : CreatureScript("boss_mother_smolderweb") { }
 
-    void Reset() override
+    CreatureAI* GetAI(Creature* creature) const override
     {
-        _Reset();
+        return GetBlackrockSpireAI<boss_mothersmolderwebAI>(creature);
     }
 
-    void JustEngagedWith(Unit* who) override
+    struct boss_mothersmolderwebAI : public BossAI
     {
-        BossAI::JustEngagedWith(who);
-        events.ScheduleEvent(EVENT_CRYSTALIZE, 20s);
-        events.ScheduleEvent(EVENT_MOTHERS_MILK, 10s);
-    }
+        boss_mothersmolderwebAI(Creature* creature) : BossAI(creature, DATA_MOTHER_SMOLDERWEB) { }
 
-    void JustDied(Unit* /*killer*/) override
-    {
-        _JustDied();
-    }
-
-    void DamageTaken(Unit* /*done_by*/, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo = nullptr*/) override
-    {
-        if (me->GetHealth() <= damage)
-            DoCast(me, SPELL_SUMMON_SPIRE_SPIDERLING, true);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        while (uint32 eventId = events.ExecuteEvent())
+        void Reset() override
         {
-            switch (eventId)
-            {
-                case EVENT_CRYSTALIZE:
-                    DoCast(me, SPELL_CRYSTALIZE);
-                    events.ScheduleEvent(EVENT_CRYSTALIZE, 15s);
-                    break;
-                case EVENT_MOTHERS_MILK:
-                    DoCast(me, SPELL_MOTHERSMILK);
-                    events.ScheduleEvent(EVENT_MOTHERS_MILK, 5s, 12500ms);
-                    break;
-            }
+            _Reset();
+        }
+
+        void EnterCombat(Unit* /*who*/) override
+        {
+            _EnterCombat();
+            events.ScheduleEvent(EVENT_CRYSTALIZE,   20 * IN_MILLISECONDS);
+            events.ScheduleEvent(EVENT_MOTHERS_MILK, 10 * IN_MILLISECONDS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            _JustDied();
+        }
+
+        void DamageTaken(Unit* /*done_by*/, uint32 &damage) override
+        {
+            if (me->GetHealth() <= damage)
+                DoCast(me, SPELL_SUMMON_SPIRE_SPIDERLING, true);
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim())
+                return;
+
+            events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
                 return;
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case EVENT_CRYSTALIZE:
+                        DoCast(me, SPELL_CRYSTALIZE);
+                        events.ScheduleEvent(EVENT_CRYSTALIZE, 15 * IN_MILLISECONDS);
+                        break;
+                    case EVENT_MOTHERS_MILK:
+                        DoCast(me, SPELL_MOTHERSMILK);
+                        events.ScheduleEvent(EVENT_MOTHERS_MILK, urand(5 * IN_MILLISECONDS, 12500));
+                        break;
+                }
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+            }
+            DoMeleeAttackIfReady();
         }
-        DoMeleeAttackIfReady();
-    }
+    };
+
 };
 
 void AddSC_boss_mothersmolderweb()
 {
-    RegisterBlackrockSpireCreatureAI(boss_mother_smolderweb);
+    new boss_mother_smolderweb();
 }

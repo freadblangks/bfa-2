@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,8 +17,8 @@
 
 #include "ScriptMgr.h"
 #include "InstanceScript.h"
-#include "ObjectAccessor.h"
 #include "naxxramas.h"
+#include "ObjectAccessor.h"
 #include "Player.h"
 #include "ScriptedCreature.h"
 
@@ -74,174 +74,184 @@ enum Phases
     PHASE_SWARM
 };
 
-struct boss_anubrekhan : public BossAI
+class boss_anubrekhan : public CreatureScript
 {
-    boss_anubrekhan(Creature* creature) : BossAI(creature, BOSS_ANUBREKHAN) { }
+public:
+    boss_anubrekhan() : CreatureScript("boss_anubrekhan") { }
 
-    void SummonGuards()
+    CreatureAI* GetAI(Creature* creature) const override
     {
-        if (Is25ManRaid())
-            me->SummonCreatureGroup(GROUP_INITIAL_25M);
+        return GetNaxxramasAI<boss_anubrekhanAI>(creature);
     }
 
-    void InitializeAI() override
+    struct boss_anubrekhanAI : public BossAI
     {
-        if (!me->isDead() && instance->GetBossState(BOSS_ANUBREKHAN) != DONE)
+        boss_anubrekhanAI(Creature* creature) : BossAI(creature, BOSS_ANUBREKHAN) { }
+
+        void SummonGuards()
         {
-            Reset();
-            SummonGuards();
+            if (Is25ManRaid())
+                me->SummonCreatureGroup(GROUP_INITIAL_25M);
         }
-    }
 
-    void Reset() override
-    {
-        _Reset();
-        guardCorpses.clear();
-    }
-
-    void JustReachedHome() override
-    {
-        _JustReachedHome();
-        SummonGuards();
-    }
-
-    void JustSummoned(Creature* summon) override
-    {
-        BossAI::JustSummoned(summon);
-
-        if (me->IsInCombat())
-            if (summon->GetEntry() == NPC_CRYPT_GUARD)
-                summon->AI()->Talk(EMOTE_SPAWN, me);
-    }
-
-    void SummonedCreatureDies(Creature* summon, Unit* killer) override
-    {
-        BossAI::SummonedCreatureDies(summon, killer);
-
-        if (summon->GetEntry() == NPC_CRYPT_GUARD)
-            guardCorpses.insert(summon->GetGUID());
-    }
-
-    void SummonedCreatureDespawn(Creature* summon) override
-    {
-        BossAI::SummonedCreatureDespawn(summon);
-
-        if (summon->GetEntry() == NPC_CRYPT_GUARD)
-            guardCorpses.erase(summon->GetGUID());
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim->GetTypeId() == TYPEID_PLAYER)
-            victim->CastSpell(victim, SPELL_SUMMON_CORPSE_SCARABS_PLR, CastSpellExtraArgs(TRIGGERED_FULL_MASK)
-                .SetOriginalCaster(me->GetGUID()));
-
-        Talk(SAY_SLAY);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        _JustDied();
-
-        // start achievement timer (kill Maexna within 20 min)
-        instance->TriggerGameEvent(ACHIEV_TIMED_START_EVENT);
-    }
-
-    void JustEngagedWith(Unit* who) override
-    {
-        BossAI::JustEngagedWith(who);
-        Talk(SAY_AGGRO);
-
-        summons.DoZoneInCombat();
-
-        events.SetPhase(PHASE_NORMAL);
-        events.ScheduleEvent(EVENT_IMPALE, randtime(Seconds(10), Seconds(20)), 0, PHASE_NORMAL);
-        events.ScheduleEvent(EVENT_SCARABS, randtime(Seconds(20), Seconds(30)), 0, PHASE_NORMAL);
-        events.ScheduleEvent(EVENT_LOCUST, Minutes(1)+randtime(Seconds(40), Seconds(60)), 0, PHASE_NORMAL);
-        events.ScheduleEvent(EVENT_BERSERK, 10min);
-
-        if (!Is25ManRaid())
-            events.ScheduleEvent(EVENT_SPAWN_GUARD, randtime(Seconds(15), Seconds(20)));
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        while (uint32 eventId = events.ExecuteEvent())
+        void InitializeAI() override
         {
-            switch (eventId)
+            if (!me->isDead())
             {
-                case EVENT_IMPALE:
-                    if (events.GetTimeUntilEvent(EVENT_LOCUST) < 5s)
-                        break; // don't chain impale tank -> locust swarm
-                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
-                        DoCast(target, SPELL_IMPALE);
-                    else
-                        EnterEvadeMode();
-
-                    events.Repeat(randtime(Seconds(10), Seconds(20)));
-                    break;
-                case EVENT_SCARABS:
-                    if (!guardCorpses.empty())
-                    {
-                        if (Creature* creatureTarget = ObjectAccessor::GetCreature(*me, Trinity::Containers::SelectRandomContainerElement(guardCorpses)))
-                        {
-                            creatureTarget->CastSpell(creatureTarget, SPELL_SUMMON_CORPSE_SCARABS_MOB, CastSpellExtraArgs(TRIGGERED_FULL_MASK)
-                                .SetOriginalCaster(me->GetGUID()));
-                            creatureTarget->AI()->Talk(EMOTE_SCARAB);
-                            creatureTarget->DespawnOrUnsummon();
-                        }
-                    }
-                    events.Repeat(randtime(Seconds(40), Seconds(60)));
-                    break;
-                case EVENT_LOCUST:
-                    Talk(EMOTE_LOCUST);
-                    events.SetPhase(PHASE_SWARM);
-                    DoCast(me, SPELL_LOCUST_SWARM);
-
-                    events.ScheduleEvent(EVENT_SPAWN_GUARD, 3s);
-                    events.ScheduleEvent(EVENT_LOCUST_ENDS, RAID_MODE(Seconds(19), Seconds(23)));
-                    events.Repeat(Minutes(1)+Seconds(30));
-                    break;
-                case EVENT_LOCUST_ENDS:
-                    events.SetPhase(PHASE_NORMAL);
-                    events.ScheduleEvent(EVENT_IMPALE, randtime(Seconds(10), Seconds(20)), 0, PHASE_NORMAL);
-                    events.ScheduleEvent(EVENT_SCARABS, randtime(Seconds(20), Seconds(30)), 0, PHASE_NORMAL);
-                    break;
-                case EVENT_SPAWN_GUARD:
-                    me->SummonCreatureGroup(GROUP_SINGLE_SPAWN);
-                    break;
-                case EVENT_BERSERK:
-                    DoCast(me, SPELL_BERSERK, true);
-                    events.ScheduleEvent(EVENT_BERSERK, 10min);
-                    break;
+                Reset();
+                SummonGuards();
             }
         }
 
-        if (events.IsInPhase(PHASE_NORMAL))
-            DoMeleeAttackIfReady();
-    }
-    private:
-        GuidSet guardCorpses;
+        void Reset() override
+        {
+            _Reset();
+            guardCorpses.clear();
+        }
+
+        void JustReachedHome() override
+        {
+            _JustReachedHome();
+            SummonGuards();
+        }
+
+        void JustSummoned(Creature* summon) override
+        {
+            BossAI::JustSummoned(summon);
+
+            if (me->IsInCombat())
+                if (summon->GetEntry() == NPC_CRYPT_GUARD)
+                    summon->AI()->Talk(EMOTE_SPAWN, me);
+        }
+
+        void SummonedCreatureDies(Creature* summon, Unit* killer) override
+        {
+            BossAI::SummonedCreatureDies(summon, killer);
+
+            if (summon->GetEntry() == NPC_CRYPT_GUARD)
+                guardCorpses.insert(summon->GetGUID());
+        }
+
+        void SummonedCreatureDespawn(Creature* summon) override
+        {
+            BossAI::SummonedCreatureDespawn(summon);
+
+            if (summon->GetEntry() == NPC_CRYPT_GUARD)
+                guardCorpses.erase(summon->GetGUID());
+        }
+
+        void KilledUnit(Unit* victim) override
+        {
+            if (victim->GetTypeId() == TYPEID_PLAYER)
+                victim->CastSpell(victim, SPELL_SUMMON_CORPSE_SCARABS_PLR, true, nullptr, nullptr, me->GetGUID());
+
+            Talk(SAY_SLAY);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            _JustDied();
+
+            // start achievement timer (kill Maexna within 20 min)
+            instance->DoStartCriteriaTimer(CRITERIA_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT);
+        }
+
+        void EnterCombat(Unit* /*who*/) override
+        {
+            _EnterCombat();
+            Talk(SAY_AGGRO);
+
+            summons.DoZoneInCombat();
+
+            events.SetPhase(PHASE_NORMAL);
+            events.ScheduleEvent(EVENT_IMPALE, randtime(Seconds(10), Seconds(20)), 0, PHASE_NORMAL);
+            events.ScheduleEvent(EVENT_SCARABS, randtime(Seconds(20), Seconds(30)), 0, PHASE_NORMAL);
+            events.ScheduleEvent(EVENT_LOCUST, Minutes(1)+randtime(Seconds(40), Seconds(60)), 0, PHASE_NORMAL);
+            events.ScheduleEvent(EVENT_BERSERK, Minutes(10));
+
+            if (!Is25ManRaid())
+                events.ScheduleEvent(EVENT_SPAWN_GUARD, randtime(Seconds(15), Seconds(20)));
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim())
+                return;
+
+            events.Update(diff);
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case EVENT_IMPALE:
+                        if (events.GetTimeUntilEvent(EVENT_LOCUST) < 5 * IN_MILLISECONDS) break; // don't chain impale tank -> locust swarm
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                            DoCast(target, SPELL_IMPALE);
+                        else
+                            EnterEvadeMode();
+
+                        events.Repeat(randtime(Seconds(10), Seconds(20)));
+                        break;
+                    case EVENT_SCARABS:
+                        if (!guardCorpses.empty())
+                        {
+                            if (Creature* creatureTarget = ObjectAccessor::GetCreature(*me, Trinity::Containers::SelectRandomContainerElement(guardCorpses)))
+                            {
+                                creatureTarget->CastSpell(creatureTarget, SPELL_SUMMON_CORPSE_SCARABS_MOB, true, nullptr, nullptr, me->GetGUID());
+                                creatureTarget->AI()->Talk(EMOTE_SCARAB);
+                                creatureTarget->DespawnOrUnsummon();
+                            }
+                        }
+                        events.Repeat(randtime(Seconds(40), Seconds(60)));
+                        break;
+                    case EVENT_LOCUST:
+                        Talk(EMOTE_LOCUST);
+                        events.SetPhase(PHASE_SWARM);
+                        DoCast(me, SPELL_LOCUST_SWARM);
+
+                        events.ScheduleEvent(EVENT_SPAWN_GUARD, Seconds(3));
+                        events.ScheduleEvent(EVENT_LOCUST_ENDS, RAID_MODE(Seconds(19), Seconds(23)));
+                        events.Repeat(Minutes(1)+Seconds(30));
+                        break;
+                    case EVENT_LOCUST_ENDS:
+                        events.SetPhase(PHASE_NORMAL);
+                        events.ScheduleEvent(EVENT_IMPALE, randtime(Seconds(10), Seconds(20)), 0, PHASE_NORMAL);
+                        events.ScheduleEvent(EVENT_SCARABS, randtime(Seconds(20), Seconds(30)), 0, PHASE_NORMAL);
+                        break;
+                    case EVENT_SPAWN_GUARD:
+                        me->SummonCreatureGroup(GROUP_SINGLE_SPAWN);
+                        break;
+                    case EVENT_BERSERK:
+                        DoCast(me, SPELL_BERSERK, true);
+                        events.ScheduleEvent(EVENT_BERSERK, Minutes(10));
+                        break;
+                }
+            }
+
+            if (events.IsInPhase(PHASE_NORMAL))
+                DoMeleeAttackIfReady();
+        }
+        private:
+            GuidSet guardCorpses;
+    };
+
 };
 
-class at_anubrekhan_entrance : public OnlyOnceAreaTriggerScript
+class at_anubrekhan_entrance : public AreaTriggerScript
 {
     public:
-        at_anubrekhan_entrance() : OnlyOnceAreaTriggerScript("at_anubrekhan_entrance") { }
+        at_anubrekhan_entrance() : AreaTriggerScript("at_anubrekhan_entrance") { }
 
-        bool TryHandleOnce(Player* player, AreaTriggerEntry const* /*areaTrigger*/) override
+        bool OnTrigger(Player* player, AreaTriggerEntry const* /*areaTrigger*/, bool /*entered*/) override
         {
             InstanceScript* instance = player->GetInstanceScript();
-            if (!instance || instance->GetBossState(BOSS_ANUBREKHAN) != NOT_STARTED)
+            if (!instance || instance->GetData(DATA_HAD_ANUBREKHAN_GREET) || instance->GetBossState(BOSS_ANUBREKHAN) != NOT_STARTED)
                 return true;
 
             if (Creature* anub = ObjectAccessor::GetCreature(*player, instance->GetGuidData(DATA_ANUBREKHAN)))
                 anub->AI()->Talk(SAY_GREET);
+            instance->SetData(DATA_HAD_ANUBREKHAN_GREET, 1u);
 
             return true;
         }
@@ -249,7 +259,7 @@ class at_anubrekhan_entrance : public OnlyOnceAreaTriggerScript
 
 void AddSC_boss_anubrekhan()
 {
-    RegisterNaxxramasCreatureAI(boss_anubrekhan);
+    new boss_anubrekhan();
 
     new at_anubrekhan_entrance();
 }

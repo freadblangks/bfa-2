@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,62 +39,73 @@ enum Events
     EVENT_INTIMIDATING_ROAR         = 3
 };
 
-struct boss_urok_doomhowl : public BossAI
+class boss_urok_doomhowl : public CreatureScript
 {
-    boss_urok_doomhowl(Creature* creature) : BossAI(creature, DATA_UROK_DOOMHOWL) { }
+public:
+    boss_urok_doomhowl() : CreatureScript("boss_urok_doomhowl") { }
 
-    void Reset() override
+    struct boss_urok_doomhowlAI : public BossAI
     {
-        _Reset();
-    }
+        boss_urok_doomhowlAI(Creature* creature) : BossAI(creature, DATA_UROK_DOOMHOWL) { }
 
-    void JustEngagedWith(Unit* who) override
-    {
-        BossAI::JustEngagedWith(who);
-        events.ScheduleEvent(SPELL_REND, 17s, 20s);
-        events.ScheduleEvent(SPELL_STRIKE, 10s, 12s);
-        Talk(SAY_AGGRO);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        _JustDied();
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        while (uint32 eventId = events.ExecuteEvent())
+        void Reset() override
         {
-            switch (eventId)
-            {
-                case SPELL_REND:
-                    DoCastVictim(SPELL_REND);
-                    events.ScheduleEvent(SPELL_REND, 8s, 10s);
-                    break;
-                case SPELL_STRIKE:
-                    DoCastVictim(SPELL_STRIKE);
-                    events.ScheduleEvent(SPELL_STRIKE, 8s, 10s);
-                    break;
-                default:
-                    break;
-            }
+            _Reset();
+        }
+
+        void EnterCombat(Unit* /*who*/) override
+        {
+            _EnterCombat();
+            events.ScheduleEvent(SPELL_REND, urand(17000,20000));
+            events.ScheduleEvent(SPELL_STRIKE, urand(10000,12000));
+            Talk(SAY_AGGRO);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            _JustDied();
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim())
+                return;
+
+            events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
                 return;
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case SPELL_REND:
+                        DoCastVictim(SPELL_REND);
+                        events.ScheduleEvent(SPELL_REND, urand(8000,10000));
+                        break;
+                    case SPELL_STRIKE:
+                        DoCastVictim(SPELL_STRIKE);
+                        events.ScheduleEvent(SPELL_STRIKE, urand(8000,10000));
+                        break;
+                    default:
+                        break;
+                }
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+            }
+            DoMeleeAttackIfReady();
         }
-        DoMeleeAttackIfReady();
+    };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return GetBlackrockSpireAI<boss_urok_doomhowlAI>(creature);
     }
 };
 
 void AddSC_boss_urok_doomhowl()
 {
-    RegisterBlackrockSpireCreatureAI(boss_urok_doomhowl);
+    new boss_urok_doomhowl();
 }

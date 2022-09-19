@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -27,10 +27,10 @@ void boss_horAI::Reset()
 {
     _Reset();
     me->SetVisible(false);
-    me->SetImmuneToAll(true);
+    me->AddUnitFlag(UnitFlags(UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC));
     me->SetReactState(REACT_PASSIVE);
     if (instance->GetData(DATA_WAVE_COUNT) != NOT_STARTED)
-        instance->ProcessEvent(nullptr, EVENT_DO_WIPE, nullptr);
+        instance->ProcessEvent(nullptr, EVENT_DO_WIPE);
 }
 
 void boss_horAI::DoAction(int32 actionId)
@@ -38,9 +38,9 @@ void boss_horAI::DoAction(int32 actionId)
     switch (actionId)
     {
         case ACTION_ENTER_COMBAT: // called by InstanceScript when boss shall enter in combat.
-            me->SetImmuneToAll(false);
+            me->RemoveUnitFlag(UnitFlags(UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC));
             me->SetReactState(REACT_AGGRESSIVE);
-            DoZoneInCombat(me);
+            DoZoneInCombat(me, 150.0f);
             break;
         default:
             break;

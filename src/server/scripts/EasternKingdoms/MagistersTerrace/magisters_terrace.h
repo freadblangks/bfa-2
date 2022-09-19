@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -27,58 +27,38 @@ uint32 const EncounterCount = 4;
 
 enum MTDataTypes
 {
-    // Encounter states
-    DATA_SELIN_FIREHEART = 0,
+    DATA_SELIN,
     DATA_VEXALLUS,
-    DATA_PRIESTESS_DELRISSA,
-    DATA_KAELTHAS_SUNSTRIDER,
+    DATA_DELRISSA,
+    DATA_KAELTHAS,
 
-    // Encounter related
-    DATA_KAELTHAS_INTRO,
+    DATA_KAEL_STATUE_LEFT,
+    DATA_KAEL_STATUE_RIGHT,
+
     DATA_DELRISSA_DEATH_COUNT,
-
-    // Additional data
-    DATA_KALECGOS,
+    DATA_KAELTHAS_STATUES,
     DATA_ESCAPE_ORB
 };
 
 enum MTCreatureIds
 {
-    // Bosses
-    BOSS_KAELTHAS_SUNSTRIDER    = 24664,
-    BOSS_SELIN_FIREHEART        = 24723,
-    BOSS_VEXALLUS               = 24744,
-    BOSS_PRIESTESS_DELRISSA     = 24560,
-
-    // Encounter related
-    /*Kael'thas Sunstrider*/
-    NPC_ARCANE_SPHERE           = 24708,
-    NPC_FLAME_STRIKE            = 24666,
-    NPC_PHOENIX                 = 24674,
-    NPC_PHOENIX_EGG             = 24675,
-
-    /*Selin Fireheart*/
-    NPC_FEL_CRYSTAL             = 24722,
-
-    // Event related
-    NPC_KALECGOS                = 24844,
-    NPC_HUMAN_KALECGOS          = 24848,
-    NPC_COILSKAR_WITCH          = 24696,
-    NPC_SUNBLADE_WARLOCK        = 24686,
-    NPC_SUNBLADE_MAGE_GUARD     = 24683,
-    NPC_SISTER_OF_TORMENT       = 24697,
-    NPC_ETHEREUM_SMUGGLER       = 24698,
-    NPC_SUNBLADE_BLOOD_KNIGHT   = 24684
+    NPC_SELIN               = 24723,
+    NPC_DELRISSA            = 24560,
+    NPC_FEL_CRYSTAL         = 24722,
+    NPC_KALECGOS            = 24844,
+    NPC_HUMAN_KALECGOS      = 24848
 };
 
 enum MTGameObjectIds
 {
-    GO_ASSEMBLY_CHAMBER_DOOR    = 188065,
-    GO_SUNWELL_RAID_GATE_2      = 187979,
-    GO_SUNWELL_RAID_GATE_4      = 187770,
-    GO_SUNWELL_RAID_GATE_5      = 187896,
-    GO_ASYLUM_DOOR              = 188064,
-    GO_ESCAPE_ORB               = 188173
+    GO_VEXALLUS_DOOR        = 187896,
+    GO_SELIN_DOOR           = 187979,
+    GO_SELIN_ENCOUNTER_DOOR = 188065,
+    GO_DELRISSA_DOOR        = 187770,
+    GO_KAEL_DOOR            = 188064,
+    GO_KAEL_STATUE_1        = 188165,
+    GO_KAEL_STATUE_2        = 188166,
+    GO_ESCAPE_ORB           = 188173
 };
 
 enum MTInstanceEventIds
@@ -96,12 +76,10 @@ enum MTMovementData
     PATH_KALECGOS_FLIGHT    = 248440
 };
 
-template <class AI, class T>
-inline AI* GetMagistersTerraceAI(T* obj)
+template<typename AI>
+inline AI* GetMagistersTerraceAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, MGTScriptName);
+    return GetInstanceAI<AI>(creature, MGTScriptName);
 }
-
-#define RegisterMagistersTerraceCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetMagistersTerraceAI)
 
 #endif

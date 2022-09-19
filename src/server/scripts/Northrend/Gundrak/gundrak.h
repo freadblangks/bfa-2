@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -59,8 +59,7 @@ enum GDCreatureIds
     NPC_DRAKKARI_COLOSSUS            = 29307,
     NPC_RUIN_DWELLER                 = 29920,
     NPC_ECK_THE_FEROCIOUS            = 29932,
-    NPC_ALTAR_TRIGGER                = 30298,
-    NPC_RHINO_SPIRIT                 = 29791
+    NPC_ALTAR_TRIGGER                = 30298
 };
 
 enum GDGameObjectIds
@@ -88,15 +87,15 @@ enum GDSpellIds
     SPELL_FIRE_BEAM_ELEMENTAL        = 57072
 };
 
-inline constexpr Milliseconds TIMER_STATUE_ACTIVATION = 3500ms;
-
-template <class AI, class T>
-inline AI* GetGundrakAI(T* obj)
+enum GDInstanceMisc
 {
-    return GetInstanceAI<AI>(obj, GundrakScriptName);
-}
+    TIMER_STATUE_ACTIVATION          = 3500
+};
 
-#define RegisterGundrakCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetGundrakAI)
-#define RegisterGundrakGameObjectAI(ai_name) RegisterGameObjectAIWithFactory(ai_name, GetGundrakAI)
+template<typename AI>
+inline AI* GetGundrakAI(Creature* creature)
+{
+    return GetInstanceAI<AI>(creature, GundrakScriptName);
+}
 
 #endif // GUNDRAK_H_

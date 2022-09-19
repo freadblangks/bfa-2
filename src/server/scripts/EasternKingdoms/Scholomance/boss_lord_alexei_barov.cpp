@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,9 +22,9 @@ SDComment: aura applied/defined in database
 SDCategory: Scholomance
 EndScriptData */
 
-#include "scholomance.h"
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
+#include "scholomance.h"
 
 enum Spells
 {
@@ -55,11 +55,11 @@ class boss_lord_alexei_barov : public CreatureScript
                     DoCast(me, SPELL_UNHOLY_AURA);
             }
 
-            void JustEngagedWith(Unit* who) override
+            void EnterCombat(Unit* /*who*/) override
             {
-                BossAI::JustEngagedWith(who);
-                events.ScheduleEvent(EVENT_IMMOLATE, 7s);
-                events.ScheduleEvent(EVENT_VEILOFSHADOW, 15s);
+                _EnterCombat();
+                events.ScheduleEvent(EVENT_IMMOLATE, 7000);
+                events.ScheduleEvent(EVENT_VEILOFSHADOW, 15000);
             }
 
             void UpdateAI(uint32 diff) override
@@ -77,12 +77,12 @@ class boss_lord_alexei_barov : public CreatureScript
                     switch (eventId)
                     {
                         case EVENT_IMMOLATE:
-                            DoCast(SelectTarget(SelectTargetMethod::Random, 0, 100, true), SPELL_IMMOLATE, true);
-                            events.ScheduleEvent(EVENT_IMMOLATE, 12s);
+                            DoCast(SelectTarget(SELECT_TARGET_RANDOM, 0, 100, true), SPELL_IMMOLATE, true);
+                            events.ScheduleEvent(EVENT_IMMOLATE, 12000);
                             break;
                         case EVENT_VEILOFSHADOW:
                             DoCastVictim(SPELL_VEILOFSHADOW, true);
-                            events.ScheduleEvent(EVENT_VEILOFSHADOW, 20s);
+                            events.ScheduleEvent(EVENT_VEILOFSHADOW, 20000);
                             break;
                         default:
                             break;

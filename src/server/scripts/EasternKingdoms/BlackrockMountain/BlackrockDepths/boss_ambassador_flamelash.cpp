@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,7 +16,6 @@
  */
 
 #include "ScriptMgr.h"
-#include "blackrock_depths.h"
 #include "ScriptedCreature.h"
 
 enum Spells
@@ -44,15 +43,15 @@ class boss_ambassador_flamelash : public CreatureScript
                 _events.Reset();
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void EnterCombat(Unit* /*who*/) override
             {
-                _events.ScheduleEvent(EVENT_FIREBLAST, 2s);
-                _events.ScheduleEvent(EVENT_SUMMON_SPIRITS, 24s);
+                _events.ScheduleEvent(EVENT_FIREBLAST, 2000);
+                _events.ScheduleEvent(EVENT_SUMMON_SPIRITS, 24000);
             }
 
             void SummonSpirit(Unit* victim)
             {
-                if (Creature* spirit = DoSpawnCreature(9178, frand(-9, 9), frand(-9, 9), 0, 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 60s))
+                if (Creature* spirit = DoSpawnCreature(9178, frand(-9, 9), frand(-9, 9), 0, 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 60000))
                     spirit->AI()->AttackStart(victim);
             }
 
@@ -69,12 +68,12 @@ class boss_ambassador_flamelash : public CreatureScript
                     {
                         case EVENT_FIREBLAST:
                             DoCastVictim(SPELL_FIREBLAST);
-                            _events.ScheduleEvent(EVENT_FIREBLAST, 7s);
+                            _events.ScheduleEvent(EVENT_FIREBLAST, 7000);
                             break;
                         case EVENT_SUMMON_SPIRITS:
                             for (uint32 i = 0; i < 4; ++i)
                                 SummonSpirit(me->GetVictim());
-                            _events.ScheduleEvent(EVENT_SUMMON_SPIRITS, 30s);
+                            _events.ScheduleEvent(EVENT_SUMMON_SPIRITS, 30000);
                             break;
                         default:
                             break;
@@ -90,7 +89,7 @@ class boss_ambassador_flamelash : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetBlackrockDepthsAI<boss_ambassador_flamelashAI>(creature);
+            return new boss_ambassador_flamelashAI(creature);
         }
 };
 

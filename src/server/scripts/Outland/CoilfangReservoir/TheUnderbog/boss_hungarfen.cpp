@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,150 +15,167 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/* ScriptData
+SDName: Boss_Hungarfen
+SD%Complete: 95
+SDComment: Need confirmation if spell data are same in both modes. Summons should have faster rate in heroic
+SDCategory: Coilfang Resevoir, Underbog
+EndScriptData */
+
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
-#include "SpellAuras.h"
 #include "the_underbog.h"
 
-enum HungarfenTexts
+enum Spells
 {
-    EMOTE_ROARS                      = 0
+    SPELL_FOUL_SPORES           = 31673,
+    SPELL_ACID_GEYSER           = 38739,
+
+    SPELL_SPORE_CLOUD           = 34168,
+    SPELL_PUTRID_MUSHROOM       = 31690,
+    SPELL_GROW                  = 31698
 };
 
-enum HungarfenSpells
+class boss_hungarfen : public CreatureScript
 {
-    SPELL_FOUL_SPORES                = 31673,
-    SPELL_SUMMON_UNDERBOG_MUSHROOM   = 31692,
-    SPELL_PUTRID_MUSHROOM_PRIMER     = 31693,
-    SPELL_DESPAWN_UNDERBOG_MUSHROOMS = 34874,
-    SPELL_ACID_GEYSER                = 38739,
+public:
+    boss_hungarfen() : CreatureScript("boss_hungarfen") { }
 
-    SPELL_SPORE_CLOUD                = 34168,
-    SPELL_PUTRID_MUSHROOM            = 31690,
-    SPELL_SHRINK                     = 31691,
-    SPELL_GROW                       = 31698
-};
-
-struct boss_hungarfen : public ScriptedAI
-{
-    boss_hungarfen(Creature* creature) : ScriptedAI(creature), _roared(false) { }
-
-    void Reset() override
+    CreatureAI* GetAI(Creature* creature) const override
     {
-        _scheduler.CancelAll();
-        _roared = false;
-        me->SetReactState(REACT_AGGRESSIVE);
+        return GetTheUnderbogAI<boss_hungarfenAI>(creature);
     }
 
-    void JustEngagedWith(Unit* /*who*/) override
+    struct boss_hungarfenAI : public ScriptedAI
     {
-        _scheduler.Schedule(IsHeroic() ? 2500ms : 5s, [this](TaskContext task)
+        boss_hungarfenAI(Creature* creature) : ScriptedAI(creature)
         {
-            /// @todo cast here SPELL_PUTRID_MUSHROOM_PRIMER and do it in spell script
-            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
-                target->CastSpell(target, SPELL_SUMMON_UNDERBOG_MUSHROOM, true);
-            task.Repeat(IsHeroic() ? 2500ms : 10s);
-        });
-
-        if (IsHeroic())
-        {
-            _scheduler.Schedule(3s, 5s, [this](TaskContext task)
-            {
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
-                    DoCast(target, SPELL_ACID_GEYSER);
-                task.Repeat(10s, 15s);
-            });
+            Initialize();
         }
-    }
 
-    void EnterEvadeMode(EvadeReason why) override
-    {
-        DoCastSelf(SPELL_DESPAWN_UNDERBOG_MUSHROOMS, true);
-        ScriptedAI::EnterEvadeMode(why);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoCastSelf(SPELL_DESPAWN_UNDERBOG_MUSHROOMS, true);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        _scheduler.Update(diff, [this]
+        void Initialize()
         {
-            DoMeleeAttackIfReady();
-        });
-
-        if (!HealthAbovePct(20) && !_roared)
-        {
-            Talk(EMOTE_ROARS);
-            _roared = true;
-            me->SetReactState(REACT_PASSIVE);
-
-            _scheduler.Schedule(2s, [this](TaskContext /*task*/)
-            {
-                DoCastSelf(SPELL_FOUL_SPORES);
-                me->SetReactState(REACT_AGGRESSIVE);
-            });
+            Root = false;
+            Mushroom_Timer = 5000;                              // 1 mushroom after 5s, then one per 10s. This should be different in heroic mode
+            AcidGeyser_Timer = 10000;
         }
-    }
 
-private:
-    TaskScheduler _scheduler;
-    bool _roared;
-};
+        bool Root;
+        uint32 Mushroom_Timer;
+        uint32 AcidGeyser_Timer;
 
-struct npc_underbog_mushroom : public ScriptedAI
-{
-    npc_underbog_mushroom(Creature* creature) : ScriptedAI(creature), _counter(0) { }
-
-    void InitializeAI() override
-    {
-        _counter = RAND(8, 9, 10);
-        me->SetReactState(REACT_PASSIVE);
-        DoCastSelf(SPELL_SHRINK);
-        DoCastSelf(SPELL_PUTRID_MUSHROOM);
-
-        _scheduler.Schedule(1s, [this](TaskContext task)
+        void Reset() override
         {
-            DoCastSelf(SPELL_GROW);
+            Initialize();
+        }
 
-            // It's random(sniffs), makes them grow to different size. We need here count of stacks
-            // and not task repeat counter because first stack is applied not when task is repeated
-            Aura* growAura = me->GetAura(SPELL_GROW);
-            if (growAura && growAura->GetStackAmount() != _counter)
-                task.Repeat(2s);
-            else
+        void EnterCombat(Unit* /*who*/) override
+        {
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim())
+                return;
+
+            if (!HealthAbovePct(20))
             {
-                task.Schedule(1s, [this](TaskContext task)
+                if (!Root)
                 {
-                    DoCastSelf(SPELL_SPORE_CLOUD);
-
-                    task.Schedule(4s, [this](TaskContext /*task*/)
-                    {
-                        me->RemoveAurasDueToSpell(SPELL_GROW);
-                        me->DespawnOrUnsummon(4s);
-                    });
-                });
+                    DoCast(me, SPELL_FOUL_SPORES);
+                    Root = true;
+                }
             }
-        });
-    }
 
-    void UpdateAI(uint32 diff) override
+            if (Mushroom_Timer <= diff)
+            {
+                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    me->SummonCreature(17990, target->GetPositionX() + (rand32() % 8), target->GetPositionY() + (rand32() % 8), target->GetPositionZ(), float(rand32() % 5), TEMPSUMMON_TIMED_DESPAWN, 22000);
+                else
+                    me->SummonCreature(17990, me->GetPositionX() + (rand32() % 8), me->GetPositionY() + (rand32() % 8), me->GetPositionZ(), float(rand32() % 5), TEMPSUMMON_TIMED_DESPAWN, 22000);
+
+                Mushroom_Timer = 10000;
+            } else Mushroom_Timer -= diff;
+
+            if (AcidGeyser_Timer <= diff)
+            {
+                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    DoCast(target, SPELL_ACID_GEYSER);
+                AcidGeyser_Timer = 10000 + rand32() % 7500;
+            } else AcidGeyser_Timer -= diff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+};
+
+class npc_underbog_mushroom : public CreatureScript
+{
+public:
+    npc_underbog_mushroom() : CreatureScript("npc_underbog_mushroom") { }
+
+    CreatureAI* GetAI(Creature* creature) const override
     {
-        _scheduler.Update(diff);
+        return GetTheUnderbogAI<npc_underbog_mushroomAI>(creature);
     }
 
-private:
-    TaskScheduler _scheduler;
-    uint32 _counter;
+    struct npc_underbog_mushroomAI : public ScriptedAI
+    {
+        npc_underbog_mushroomAI(Creature* creature) : ScriptedAI(creature)
+        {
+            Initialize();
+        }
+
+        void Initialize()
+        {
+            Stop = false;
+            Grow_Timer = 0;
+            Shrink_Timer = 20000;
+        }
+
+        bool Stop;
+        uint32 Grow_Timer;
+        uint32 Shrink_Timer;
+
+        void Reset() override
+        {
+            Initialize();
+
+            DoCast(me, SPELL_PUTRID_MUSHROOM, true);
+            DoCast(me, SPELL_SPORE_CLOUD, true);
+        }
+
+        void MoveInLineOfSight(Unit* /*who*/) override { }
+
+
+        void AttackStart(Unit* /*who*/) override { }
+
+        void EnterCombat(Unit* /*who*/) override { }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (Stop)
+                return;
+
+            if (Grow_Timer <= diff)
+            {
+                DoCast(me, SPELL_GROW);
+                Grow_Timer = 3000;
+            } else Grow_Timer -= diff;
+
+            if (Shrink_Timer <= diff)
+            {
+                me->RemoveAurasDueToSpell(SPELL_GROW);
+                Stop = true;
+            } else Shrink_Timer -= diff;
+        }
+    };
+
 };
 
 void AddSC_boss_hungarfen()
 {
-    RegisterTheUnderbogCreatureAI(boss_hungarfen);
-    RegisterTheUnderbogCreatureAI(npc_underbog_mushroom);
+    new boss_hungarfen();
+    new npc_underbog_mushroom();
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,10 +17,11 @@
 
 #include "ScriptMgr.h"
 #include "blood_furnace.h"
+#include "Creature.h"
+#include "CreatureAI.h"
 #include "GameObject.h"
 #include "InstanceScript.h"
 #include "Map.h"
-#include "ScriptedCreature.h"
 
 DoorData const doorData[] =
 {
@@ -31,18 +32,6 @@ DoorData const doorData[] =
     { GO_PRISON_DOOR_05, DATA_BROGGOK,             DOOR_TYPE_ROOM },
     { GO_SUMMON_DOOR,    DATA_KELIDAN_THE_BREAKER, DOOR_TYPE_PASSAGE },
     { 0,                 0,                        DOOR_TYPE_ROOM } // END
-};
-
-ObjectData const creatureData[] =
-{
-    { NPC_BROGGOK,             DATA_BROGGOK             },
-    { 0,                       0                        } // END
-};
-
-ObjectData const gameObjectData[] =
-{
-    { GO_BROGGOK_LEVER,      DATA_BROGGOK_LEVER },
-    { 0,                     0                  } //END
 };
 
 class instance_blood_furnace : public InstanceMapScript
@@ -57,7 +46,6 @@ class instance_blood_furnace : public InstanceMapScript
                 SetHeaders(DataHeader);
                 SetBossNumber(EncounterCount);
                 LoadDoorData(doorData);
-                LoadObjectData(creatureData, gameObjectData);
 
                 PrisonerCounter5        = 0;
                 PrisonerCounter6        = 0;
@@ -67,8 +55,6 @@ class instance_blood_furnace : public InstanceMapScript
 
             void OnCreatureCreate(Creature* creature) override
             {
-                InstanceScript::OnCreatureCreate(creature);
-
                 switch (creature->GetEntry())
                 {
                     case NPC_THE_MAKER:
@@ -80,8 +66,7 @@ class instance_blood_furnace : public InstanceMapScript
                     case NPC_KELIDAN_THE_BREAKER:
                         KelidanTheBreakerGUID = creature->GetGUID();
                         break;
-                    case NPC_PRISONER1:
-                    case NPC_PRISONER2:
+                    case NPC_PRISONER:
                         StorePrisoner(creature);
                         break;
                     default:
@@ -91,19 +76,17 @@ class instance_blood_furnace : public InstanceMapScript
 
             void OnUnitDeath(Unit* unit) override
             {
-                if (unit->GetTypeId() == TYPEID_UNIT && (unit->GetEntry() == NPC_PRISONER1 || unit->GetEntry() == NPC_PRISONER2))
+                if (unit->GetTypeId() == TYPEID_UNIT && unit->GetEntry() == NPC_PRISONER)
                     PrisonerDied(unit->GetGUID());
             }
 
             void OnGameObjectCreate(GameObject* go) override
             {
-                InstanceScript::OnGameObjectCreate(go);
-
                 switch (go->GetEntry())
                 {
                     case GO_PRISON_DOOR_04:
                         PrisonDoor4GUID = go->GetGUID();
-                        [[fallthrough]];
+                        // no break
                     case GO_PRISON_DOOR_01:
                     case GO_PRISON_DOOR_02:
                     case GO_PRISON_DOOR_03:
@@ -143,6 +126,23 @@ class instance_blood_furnace : public InstanceMapScript
                 }
             }
 
+            void OnGameObjectRemove(GameObject* go) override
+            {
+                switch (go->GetEntry())
+                {
+                    case GO_PRISON_DOOR_01:
+                    case GO_PRISON_DOOR_02:
+                    case GO_PRISON_DOOR_03:
+                    case GO_PRISON_DOOR_04:
+                    case GO_PRISON_DOOR_05:
+                    case GO_SUMMON_DOOR:
+                        AddDoor(go, false);
+                        break;
+                    default:
+                        break;
+                }
+            }
+
             ObjectGuid GetGuidData(uint32 type) const override
             {
                 switch (type)
@@ -175,6 +175,8 @@ class instance_blood_furnace : public InstanceMapScript
                                 break;
                             case NOT_STARTED:
                                 ResetPrisons();
+                                if (GameObject* lever = instance->GetGameObject(BroggokLeverGUID))
+                                    lever->Respawn();
                                 break;
                             default:
                                 break;
@@ -189,58 +191,43 @@ class instance_blood_furnace : public InstanceMapScript
 
             void ResetPrisons()
             {
+                PrisonerCounter5 = PrisonersCell5.size();
                 ResetPrisoners(PrisonersCell5);
-                PrisonerCounter5 = uint8(PrisonersCell5.size());
                 HandleGameObject(PrisonCellGUIDs[DATA_PRISON_CELL5 - DATA_PRISON_CELL1], false);
 
+                PrisonerCounter6 = PrisonersCell6.size();
                 ResetPrisoners(PrisonersCell6);
-                PrisonerCounter6 = uint8(PrisonersCell6.size());
                 HandleGameObject(PrisonCellGUIDs[DATA_PRISON_CELL6 - DATA_PRISON_CELL1], false);
 
+                PrisonerCounter7 = PrisonersCell7.size();
                 ResetPrisoners(PrisonersCell7);
-                PrisonerCounter7 = uint8(PrisonersCell7.size());
                 HandleGameObject(PrisonCellGUIDs[DATA_PRISON_CELL7 - DATA_PRISON_CELL1], false);
 
+                PrisonerCounter8 = PrisonersCell8.size();
                 ResetPrisoners(PrisonersCell8);
-                PrisonerCounter8 = uint8(PrisonersCell8.size());
                 HandleGameObject(PrisonCellGUIDs[DATA_PRISON_CELL8 - DATA_PRISON_CELL1], false);
             }
 
-            void ResetPrisoners(GuidSet& prisoners)
+            void ResetPrisoners(GuidSet const& prisoners)
             {
-                for (GuidSet::const_iterator i = prisoners.begin(); i != prisoners.end();)
-                {
-                    if (Creature * prisoner = instance->GetCreature(*i))
-                    {
-                        if (!prisoner->IsAlive())
-                            i = prisoners.erase(i);
-                        else
-                            ++i;
-
+                for (GuidSet::const_iterator i = prisoners.begin(); i != prisoners.end(); ++i)
+                    if (Creature* prisoner = instance->GetCreature(*i))
                         ResetPrisoner(prisoner);
-                    }
-                    else
-                        ++i;
-                }
             }
 
             void ResetPrisoner(Creature* prisoner)
             {
                 if (!prisoner->IsAlive())
                     prisoner->Respawn(true);
-                prisoner->SetUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
-                prisoner->SetImmuneToAll(true);
-                if (prisoner->IsAIEnabled())
-                    prisoner->AI()->EnterEvadeMode();
+                prisoner->AddUnitFlag(UnitFlags(UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_NON_ATTACKABLE));
             }
 
             void StorePrisoner(Creature* creature)
             {
                 float posX = creature->GetPositionX();
                 float posY = creature->GetPositionY();
-                float posZ = creature->GetPositionZ();
 
-                if (posX >= 405.0f && posX <= 423.0f && posZ <= 17)
+                if (posX >= 405.0f && posX <= 423.0f)
                 {
                     if (posY >= 106.0f && posY <= 123.0f)
                     {
@@ -254,7 +241,7 @@ class instance_blood_furnace : public InstanceMapScript
                     }
                     else return;
                 }
-                else if (posX >= 490.0f && posX <= 506.0f && posZ <= 17)
+                else if (posX >= 490.0f && posX <= 506.0f)
                 {
                     if (posY >= 106.0f && posY <= 123.0f)
                     {
@@ -320,9 +307,8 @@ class instance_blood_furnace : public InstanceMapScript
                 for (GuidSet::const_iterator i = prisoners.begin(); i != prisoners.end(); ++i)
                     if (Creature* prisoner = instance->GetCreature(*i))
                     {
-                        prisoner->RemoveUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
-                        prisoner->SetImmuneToAll(false);
-                        prisoner->AI()->DoZoneInCombat();
+                        prisoner->RemoveUnitFlag(UnitFlags(UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_NON_ATTACKABLE));
+                        prisoner->SetInCombatWithZone();
                     }
             }
 

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -95,10 +95,10 @@ enum HYGameobjectIds
 
 #define MINRAIDDAMAGE 700000 // minimal damage before trash can drop loot and reputation, resets if faction leader dies
 
-template <class AI, class T>
-inline AI* GetHyjalAI(T* obj)
+template<typename AI>
+inline AI* GetHyjalAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, HyjalScriptName);
+    return GetInstanceAI<AI>(creature, HyjalScriptName);
 }
 
 #endif

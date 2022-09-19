@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -34,12 +34,10 @@ enum MTDataTypes
     DATA_YOR                    = 3
 };
 
-template <class AI, class T>
-inline AI* GetManaTombsAI(T* obj)
+template<typename AI>
+inline AI* GetManaTombsAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, MTScriptName);
+    return GetInstanceAI<AI>(creature, MTScriptName);
 }
-
-#define RegisterManaTombsCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetManaTombsAI)
 
 #endif // MANA_TOMBS_H_

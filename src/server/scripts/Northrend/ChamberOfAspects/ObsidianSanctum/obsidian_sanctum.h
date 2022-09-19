@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -48,12 +48,10 @@ enum OSGameObjectIds
     GO_TWILIGHT_PORTAL          = 193988
 };
 
-template <class AI, class T>
-inline AI* GetObsidianSanctumAI(T* obj)
+template<typename AI>
+inline AI* GetObsidianSanctumAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, OSScriptName);
+    return GetInstanceAI<AI>(creature, OSScriptName);
 }
-
-#define RegisterObsidianSanctumCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetObsidianSanctumAI)
 
 #endif // OBSIDIAN_SANCTUM_H_

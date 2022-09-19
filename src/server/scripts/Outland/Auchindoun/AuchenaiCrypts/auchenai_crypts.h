@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -32,12 +32,10 @@ enum ACDataTypes
     DATA_EXARCH_MALADAAR            = 1
 };
 
-template <class AI, class T>
-inline AI* GetAuchenaiCryptsAI(T* obj)
+template<typename AI>
+inline AI* GetAuchenaiCryptsAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, ACScriptName);
+    return GetInstanceAI<AI>(creature, ACScriptName);
 }
-
-#define RegisterAuchenaiCryptsCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetAuchenaiCryptsAI)
 
 #endif // AUCHENAI_CRYPTS_H_

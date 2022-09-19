@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -31,61 +31,73 @@ enum Events
     EVENT_KNOCK_AWAY                = 2
 };
 
-struct boss_highlord_omokk : public BossAI
+class boss_highlord_omokk : public CreatureScript
 {
-    boss_highlord_omokk(Creature* creature) : BossAI(creature, DATA_HIGHLORD_OMOKK) { }
+public:
+    boss_highlord_omokk() : CreatureScript("boss_highlord_omokk") { }
 
-    void Reset() override
+    CreatureAI* GetAI(Creature* creature) const override
     {
-        _Reset();
+        return GetBlackrockSpireAI<boss_highlordomokkAI>(creature);
     }
 
-    void JustEngagedWith(Unit* who) override
+    struct boss_highlordomokkAI : public BossAI
     {
-        BossAI::JustEngagedWith(who);
-        events.ScheduleEvent(EVENT_FRENZY, 20s);
-        events.ScheduleEvent(EVENT_KNOCK_AWAY, 18s);
-    }
+        boss_highlordomokkAI(Creature* creature) : BossAI(creature, DATA_HIGHLORD_OMOKK) { }
 
-    void JustDied(Unit* /*killer*/) override
-    {
-        _JustDied();
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        while (uint32 eventId = events.ExecuteEvent())
+        void Reset() override
         {
-            switch (eventId)
-            {
-                case EVENT_FRENZY:
-                    DoCastVictim(SPELL_FRENZY);
-                    events.ScheduleEvent(EVENT_FRENZY, 1min);
-                    break;
-                case EVENT_KNOCK_AWAY:
-                    DoCastVictim(SPELL_KNOCK_AWAY);
-                    events.ScheduleEvent(EVENT_KNOCK_AWAY, 12s);
-                    break;
-                default:
-                    break;
-            }
+            _Reset();
+        }
+
+        void EnterCombat(Unit* /*who*/) override
+        {
+            _EnterCombat();
+            events.ScheduleEvent(EVENT_FRENZY,      20000);
+            events.ScheduleEvent(EVENT_KNOCK_AWAY,  18000);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            _JustDied();
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim())
+                return;
+
+            events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
                 return;
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case EVENT_FRENZY:
+                        DoCastVictim(SPELL_FRENZY);
+                        events.ScheduleEvent(EVENT_FRENZY, 60000);
+                        break;
+                    case EVENT_KNOCK_AWAY:
+                        DoCastVictim(SPELL_KNOCK_AWAY);
+                        events.ScheduleEvent(EVENT_KNOCK_AWAY, 12000);
+                        break;
+                    default:
+                        break;
+                }
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+            }
+            DoMeleeAttackIfReady();
         }
-        DoMeleeAttackIfReady();
-    }
+    };
+
 };
 
 void AddSC_boss_highlordomokk()
 {
-    RegisterBlackrockSpireCreatureAI(boss_highlord_omokk);
+    new boss_highlord_omokk();
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -57,7 +57,9 @@ enum SPCreaturesIds
     NPC_SHAMAN_BONFIRE_BUNNY_002         = 25973,
     NPC_SHAMAN_BEAM_BUNNY_000            = 25964,
     NPC_SHAMAN_BEAM_BUNNY_001            = 25965,
-    NPC_SHAMAN_BEAM_BUNNY_002            = 25966
+    NPC_SHAMAN_BEAM_BUNNY_002            = 25966,
+    NPC_WHISP_DEST_BUNNY                 = 26120,
+    NPC_WHISP_SOURCE_BUNNY               = 26121
 };
 
 enum SPGameObjectIds
@@ -66,13 +68,10 @@ enum SPGameObjectIds
     GO_ICE_STONE                         = 187882
 };
 
-template <class AI, class T>
-inline AI* GetSlavePensAI(T* obj)
+template<typename AI>
+inline AI* GetSlavePensAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, SPScriptName);
+    return GetInstanceAI<AI>(creature, SPScriptName);
 }
-
-#define RegisterSlavePensCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetSlavePensAI)
-#define RegisterSlavePensGameObjectAI(ai_name) RegisterGameObjectAIWithFactory(ai_name, GetSlavePensAI)
 
 #endif // SLAVE_PENS_H

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,8 +20,8 @@
 
 #include "CreatureAIImpl.h"
 
-#define ZGScriptName "instance_zulgurub"
 #define DataHeader "ZG"
+#define ZGScriptName "instance_zulgurub"
 
 uint32 const EncounterCount = 5;
 
@@ -89,13 +89,10 @@ enum ZGGameObjectIds
     GO_THE_CACHE_OF_MADNESS_DOOR    = 208843
 };
 
-template <class AI, class T>
-inline AI* GetZulGurubAI(T* obj)
+template<typename AI>
+inline AI* GetZulGurubAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, ZGScriptName);
+    return GetInstanceAI<AI>(creature, ZGScriptName);
 }
-
-#define RegisterZulGurubCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetZulGurubAI)
-#define RegisterZulGurubGameObjectAI(ai_name) RegisterGameObjectAIWithFactory(ai_name, GetZulGurubAI)
 
 #endif

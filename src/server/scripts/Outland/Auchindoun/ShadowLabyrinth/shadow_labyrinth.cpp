@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -24,33 +24,43 @@ enum Spells
     SPELL_MARK_OF_MALICE_TRIGGERED = 33494
 };
 
-// 33493 - Mark of Malice
-class spell_mark_of_malice : public AuraScript
+class spell_mark_of_malice : public SpellScriptLoader
 {
-    PrepareAuraScript(spell_mark_of_malice);
+    public:
+        spell_mark_of_malice() : SpellScriptLoader("spell_mark_of_malice") { }
 
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo({ SPELL_MARK_OF_MALICE_TRIGGERED });
-    }
+        class spell_mark_of_malice_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_mark_of_malice_AuraScript);
 
-    void HandleProc(AuraEffect* aurEff, ProcEventInfo& /*eventInfo*/)
-    {
-        PreventDefaultAction();
-        // just drop charges
-        if (GetCharges() > 1)
-            return;
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                return ValidateSpellInfo({ SPELL_MARK_OF_MALICE_TRIGGERED });
+            }
 
-        GetTarget()->CastSpell(GetTarget(), SPELL_MARK_OF_MALICE_TRIGGERED, aurEff);
-    }
+            void HandleProc(AuraEffect const* aurEff, ProcEventInfo& /*eventInfo*/)
+            {
+                PreventDefaultAction();
+                // just drop charges
+                if (GetCharges() > 1)
+                    return;
 
-    void Register() override
-    {
-        OnEffectProc += AuraEffectProcFn(spell_mark_of_malice::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
-    }
+                GetTarget()->CastSpell(GetTarget(), SPELL_MARK_OF_MALICE_TRIGGERED, true, nullptr, aurEff);
+            }
+
+            void Register() override
+            {
+                OnEffectProc += AuraEffectProcFn(spell_mark_of_malice_AuraScript::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_mark_of_malice_AuraScript();
+        }
 };
 
 void AddSC_shadow_labyrinth()
 {
-    RegisterSpellScript(spell_mark_of_malice);
+    new spell_mark_of_malice();
 }

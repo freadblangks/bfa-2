@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,76 +39,87 @@ enum Events
     EVENT_SLEEP
 };
 
-struct boss_kelris : public BossAI
+class boss_kelris : public CreatureScript
 {
-    boss_kelris(Creature* creature) : BossAI(creature, DATA_KELRIS) { }
+public:
+    boss_kelris() : CreatureScript("boss_kelris") { }
 
-    void Reset() override
+    struct boss_kelrisAI : public BossAI
     {
-        _Reset();
-        DoCastSelf(SPELL_BLACKFATHOM_CHANNELING);
-    }
+        boss_kelrisAI(Creature* creature) : BossAI(creature, DATA_KELRIS) { }
 
-    void JustReachedHome() override
-    {
-        _JustReachedHome();
-        DoCastSelf(SPELL_BLACKFATHOM_CHANNELING);
-    }
-
-    void JustEngagedWith(Unit* who) override
-    {
-        BossAI::JustEngagedWith(who);
-        Talk(SAY_AGGRO);
-        me->RemoveAurasDueToSpell(SPELL_BLACKFATHOM_CHANNELING);
-        events.ScheduleEvent(EVENT_MIND_BLAST, 2s, 5s);
-        events.ScheduleEvent(EVENT_SLEEP, 9s, 12s);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        Talk(SAY_DEATH);
-        _JustDied();
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        while (uint32 eventId = events.ExecuteEvent())
+        void Reset() override
         {
-            switch (eventId)
-            {
-                case EVENT_MIND_BLAST:
-                    DoCastVictim(SPELL_MIND_BLAST);
-                    events.ScheduleEvent(EVENT_MIND_BLAST, 7s, 9s);
-                    break;
-                case EVENT_SLEEP:
-                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 100, true))
-                    {
-                        Talk(SAY_SLEEP);
-                        DoCast(target, SPELL_SLEEP);
-                    }
-                    events.ScheduleEvent(EVENT_SLEEP, 15s, 20s);
-                    break;
-                default:
-                    break;
-            }
+            _Reset();
+            DoCastSelf(SPELL_BLACKFATHOM_CHANNELING);
+        }
+
+        void JustReachedHome() override
+        {
+            _JustReachedHome();
+            DoCastSelf(SPELL_BLACKFATHOM_CHANNELING);
+        }
+
+        void EnterCombat(Unit* /*who*/) override
+        {
+            _EnterCombat();
+            Talk(SAY_AGGRO);
+            me->RemoveAurasDueToSpell(SPELL_BLACKFATHOM_CHANNELING);
+            events.ScheduleEvent(EVENT_MIND_BLAST, urand(2000, 5000));
+            events.ScheduleEvent(EVENT_SLEEP, urand(9000, 12000));
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            Talk(SAY_DEATH);
+            _JustDied();
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim())
+                return;
+
+            events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
                 return;
-        }
 
-        DoMeleeAttackIfReady();
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case EVENT_MIND_BLAST:
+                        DoCastVictim(SPELL_MIND_BLAST);
+                        events.ScheduleEvent(EVENT_MIND_BLAST, urand(7000, 9000));
+                        break;
+                    case EVENT_SLEEP:
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100, true))
+                        {
+                            Talk(SAY_SLEEP);
+                            DoCast(target, SPELL_SLEEP);
+                        }
+                        events.ScheduleEvent(EVENT_SLEEP, urand(15000, 20000));
+                        break;
+                    default:
+                        break;
+                }
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return GetBlackfathomDeepsAI<boss_kelrisAI>(creature);
     }
 };
 
 void AddSC_boss_kelris()
 {
-    RegisterBlackfathomDeepsCreatureAI(boss_kelris);
+    new boss_kelris();
 }

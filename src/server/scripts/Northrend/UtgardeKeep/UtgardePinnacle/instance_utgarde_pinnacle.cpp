@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,6 +17,7 @@
 
 #include "ScriptMgr.h"
 #include "AreaBoundary.h"
+#include "Creature.h"
 #include "GameObject.h"
 #include "InstanceScript.h"
 #include "utgarde_pinnacle.h"
@@ -72,13 +73,14 @@ class instance_utgarde_pinnacle : public InstanceMapScript
                 LoadObjectData(creatureData, gameObjectData);
             }
 
+
             void OnGameObjectCreate(GameObject* go) override
             {
                 InstanceScript::OnGameObjectCreate(go);
 
                 if (go->GetEntry() == GO_GORTOK_PALEHOOF_SPHERE)
                     if (GetBossState(DATA_GORTOK_PALEHOOF) == DONE)
-                        go->SetFlag(GO_FLAG_NOT_SELECTABLE);
+                        go->AddFlag(GO_FLAG_NOT_SELECTABLE);
             }
 
             void SetGuidData(uint32 type, ObjectGuid data) override

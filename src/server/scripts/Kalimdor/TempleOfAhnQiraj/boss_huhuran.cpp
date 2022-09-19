@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -49,9 +49,9 @@ public:
         return GetAQ40AI<boss_huhuranAI>(creature);
     }
 
-    struct boss_huhuranAI : public BossAI
+    struct boss_huhuranAI : public ScriptedAI
     {
-        boss_huhuranAI(Creature* creature) : BossAI(creature, DATA_HUHURAN)
+        boss_huhuranAI(Creature* creature) : ScriptedAI(creature)
         {
             Initialize();
         }
@@ -82,7 +82,10 @@ public:
         void Reset() override
         {
             Initialize();
-            _Reset();
+        }
+
+        void EnterCombat(Unit* /*who*/) override
+        {
         }
 
         void UpdateAI(uint32 diff) override
@@ -104,7 +107,7 @@ public:
             // Wyvern Timer
             if (Wyvern_Timer <= diff)
             {
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
+                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
                     DoCast(target, SPELL_WYVERNSTING);
                 Wyvern_Timer = urand(15000, 32000);
             } else Wyvern_Timer -= diff;

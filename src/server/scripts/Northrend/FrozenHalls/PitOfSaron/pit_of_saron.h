@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -85,8 +85,8 @@ enum POSCreatureIds
     NPC_RESCUED_SLAVE_HORDE                     = 36889,
     NPC_MARTIN_VICTUS_1                         = 37591,
     NPC_MARTIN_VICTUS_2                         = 37580,
-    NPC_GORKUN_IRONSKULL_1                      = 37592,
-    NPC_GORKUN_IRONSKULL_2                      = 37581,
+    NPC_GORKUN_IRONSKULL_1                      = 37581,
+    NPC_GORKUN_IRONSKULL_2                      = 37592,
 
     NPC_FORGEMASTER_STALKER                     = 36495,
     NPC_EXPLODING_ORB                           = 36610,
@@ -110,8 +110,6 @@ enum SpellsIcicle
     SPELL_DONT_LOOK_UP_ACHIEV_CREDIT    = 72845
 };
 
-class Creature;
-
 class ScheduledIcicleSummons : public BasicEvent
 {
     public:
@@ -123,12 +121,10 @@ class ScheduledIcicleSummons : public BasicEvent
         Creature* _trigger;
 };
 
-template <class AI, class T>
-inline AI* GetPitOfSaronAI(T* obj)
+template<typename AI>
+inline AI* GetPitOfSaronAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, PoSScriptName);
+    return GetInstanceAI<AI>(creature, PoSScriptName);
 }
-
-#define RegisterPitOfSaronCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetPitOfSaronAI)
 
 #endif // PIT_OF_SARON_H_

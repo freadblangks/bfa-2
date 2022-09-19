@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -77,281 +77,302 @@ const SummonerInfo summoners[] =
 
 #define MAX_Y_COORD_OH_NOVOS        -771.95f
 
-struct boss_novos : public BossAI
+class boss_novos : public CreatureScript
 {
-    boss_novos(Creature* creature) : BossAI(creature, DATA_NOVOS)
+public:
+    boss_novos() : CreatureScript("boss_novos") { }
+
+    struct boss_novosAI : public BossAI
     {
-        Initialize();
-        _bubbled = false;
-    }
-
-    void Initialize()
-    {
-        _ohNovos = true;
-        _crystalHandlerCount = 0;
-    }
-
-    void Reset() override
-    {
-        _Reset();
-
-        Initialize();
-        SetCrystalsStatus(false);
-        SetSummonerStatus(false);
-        SetBubbled(false);
-    }
-
-    void JustEngagedWith(Unit* who) override
-    {
-        BossAI::JustEngagedWith(who);
-        Talk(SAY_AGGRO);
-
-        SetCrystalsStatus(true);
-        SetSummonerStatus(true);
-        SetBubbled(true);
-    }
-
-    void AttackStart(Unit* target) override
-    {
-        if (!target)
-            return;
-
-        if (me->Attack(target, true))
-            DoStartNoMovement(target);
-    }
-
-    void KilledUnit(Unit* who) override
-    {
-        if (who->GetTypeId() == TYPEID_PLAYER)
-            Talk(SAY_KILL);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        _JustDied();
-        Talk(SAY_DEATH);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim() || _bubbled)
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        if (uint32 eventId = events.ExecuteEvent())
+        boss_novosAI(Creature* creature) : BossAI(creature, DATA_NOVOS)
         {
-            switch (eventId)
-            {
-                case EVENT_SUMMON_MINIONS:
-                    DoCast(SPELL_SUMMON_MINIONS);
-                    events.ScheduleEvent(EVENT_SUMMON_MINIONS, 15s);
-                    break;
-                case EVENT_ATTACK:
-                    if (Unit* victim = SelectTarget(SelectTargetMethod::Random))
-                        DoCast(victim, RAND(SPELL_ARCANE_BLAST, SPELL_BLIZZARD, SPELL_FROSTBOLT, SPELL_WRATH_OF_MISERY));
-                    events.ScheduleEvent(EVENT_ATTACK, 3s);
-                    break;
-                default:
-                    break;
-            }
+            Initialize();
+            _bubbled = false;
+        }
+
+        void Initialize()
+        {
+            _ohNovos = true;
+            _crystalHandlerCount = 0;
+        }
+
+        void Reset() override
+        {
+            _Reset();
+
+            Initialize();
+            SetCrystalsStatus(false);
+            SetSummonerStatus(false);
+            SetBubbled(false);
+        }
+
+        void EnterCombat(Unit* /* victim */) override
+        {
+            _EnterCombat();
+            Talk(SAY_AGGRO);
+
+            SetCrystalsStatus(true);
+            SetSummonerStatus(true);
+            SetBubbled(true);
+        }
+
+        void AttackStart(Unit* target) override
+        {
+            if (!target)
+                return;
+
+            if (me->Attack(target, true))
+                DoStartNoMovement(target);
+        }
+
+        void KilledUnit(Unit* who) override
+        {
+            if (who->GetTypeId() == TYPEID_PLAYER)
+                Talk(SAY_KILL);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            _JustDied();
+            Talk(SAY_DEATH);
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim() || _bubbled)
+                return;
+
+            events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
                 return;
-        }
-    }
 
-    void DoAction(int32 action) override
-    {
-        if (action == ACTION_CRYSTAL_HANDLER_DIED)
-            CrystalHandlerDied();
-    }
-
-    void MoveInLineOfSight(Unit* who) override
-    {
-        BossAI::MoveInLineOfSight(who);
-
-        if (!_ohNovos || !who || who->GetTypeId() != TYPEID_UNIT || who->GetPositionY() > MAX_Y_COORD_OH_NOVOS)
-            return;
-
-        uint32 entry = who->GetEntry();
-        if (entry == NPC_HULKING_CORPSE || entry == NPC_RISEN_SHADOWCASTER || entry == NPC_FETID_TROLL_CORPSE)
-            _ohNovos = false;
-    }
-
-    uint32 GetData(uint32 type) const override
-    {
-        return type == DATA_NOVOS_ACHIEV && _ohNovos ? 1 : 0;
-    }
-
-    void JustSummoned(Creature* summon) override
-    {
-        summons.Summon(summon);
-    }
-
-private:
-    void SetBubbled(bool state)
-    {
-        _bubbled = state;
-        if (!state)
-        {
-            me->RemoveUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
-            if (me->HasUnitState(UNIT_STATE_CASTING))
-                me->CastStop();
-        }
-        else
-        {
-            me->SetUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
-            DoCast(SPELL_ARCANE_FIELD);
-        }
-    }
-
-    void SetSummonerStatus(bool active)
-    {
-        for (uint8 i = 0; i < 4; i++)
-        {
-            ObjectGuid guid = instance->GetGuidData(summoners[i].data);
-            if (!guid.IsEmpty())
+            if (uint32 eventId = events.ExecuteEvent())
             {
-                if (Creature* crystalChannelTarget = ObjectAccessor::GetCreature(*me, guid))
+                switch (eventId)
                 {
-                    if (active)
-                        crystalChannelTarget->AI()->SetData(summoners[i].spell, summoners[i].timer);
-                    else
-                        crystalChannelTarget->AI()->Reset();
+                    case EVENT_SUMMON_MINIONS:
+                        DoCast(SPELL_SUMMON_MINIONS);
+                        events.ScheduleEvent(EVENT_SUMMON_MINIONS, 15000);
+                        break;
+                    case EVENT_ATTACK:
+                        if (Unit* victim = SelectTarget(SELECT_TARGET_RANDOM))
+                            DoCast(victim, RAND(SPELL_ARCANE_BLAST, SPELL_BLIZZARD, SPELL_FROSTBOLT, SPELL_WRATH_OF_MISERY));
+                        events.ScheduleEvent(EVENT_ATTACK, 3000);
+                        break;
+                    default:
+                        break;
                 }
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
             }
         }
-    }
 
-    void SetCrystalsStatus(bool active)
-    {
-        for (uint8 i = 0; i < 4; i++)
+        void DoAction(int32 action) override
         {
-            ObjectGuid guid = instance->GetGuidData(DATA_NOVOS_CRYSTAL_1 + i);
-            if (!guid.IsEmpty())
-                if (GameObject* crystal = ObjectAccessor::GetGameObject(*me, guid))
-                    SetCrystalStatus(crystal, active);
+            if (action == ACTION_CRYSTAL_HANDLER_DIED)
+                CrystalHandlerDied();
         }
-    }
 
-    void SetCrystalStatus(GameObject* crystal, bool active)
-    {
-        crystal->SetGoState(active ? GO_STATE_ACTIVE : GO_STATE_READY);
-        if (Creature* crystalChannelTarget = crystal->FindNearestCreature(NPC_CRYSTAL_CHANNEL_TARGET, 5.0f))
+        void MoveInLineOfSight(Unit* who) override
         {
-            if (active)
-                crystalChannelTarget->CastSpell(nullptr, SPELL_BEAM_CHANNEL);
-            else if (crystalChannelTarget->HasUnitState(UNIT_STATE_CASTING))
-                crystalChannelTarget->CastStop();
+            BossAI::MoveInLineOfSight(who);
+
+            if (!_ohNovos || !who || who->GetTypeId() != TYPEID_UNIT || who->GetPositionY() > MAX_Y_COORD_OH_NOVOS)
+                return;
+
+            uint32 entry = who->GetEntry();
+            if (entry == NPC_HULKING_CORPSE || entry == NPC_RISEN_SHADOWCASTER || entry == NPC_FETID_TROLL_CORPSE)
+                _ohNovos = false;
         }
-    }
 
-    void CrystalHandlerDied()
-    {
-        for (uint8 i = 0; i < 4; i++)
+        uint32 GetData(uint32 type) const override
         {
-            ObjectGuid guid = instance->GetGuidData(DATA_NOVOS_CRYSTAL_1 + i);
-            if (!guid.IsEmpty())
+            return type == DATA_NOVOS_ACHIEV && _ohNovos ? 1 : 0;
+        }
+
+        void JustSummoned(Creature* summon) override
+        {
+            summons.Summon(summon);
+        }
+
+    private:
+        void SetBubbled(bool state)
+        {
+            _bubbled = state;
+            if (!state)
             {
-                if (GameObject* crystal = ObjectAccessor::GetGameObject(*me, guid))
+                if (me->HasUnitFlag(UNIT_FLAG_NON_ATTACKABLE))
+                    me->RemoveUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    me->CastStop();
+            }
+            else
+            {
+                if (!me->HasUnitFlag(UNIT_FLAG_NON_ATTACKABLE))
+                    me->AddUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
+                DoCast(SPELL_ARCANE_FIELD);
+            }
+        }
+
+        void SetSummonerStatus(bool active)
+        {
+            for (uint8 i = 0; i < 4; i++)
+            {
+                ObjectGuid guid = instance->GetGuidData(summoners[i].data);
+                if (!guid.IsEmpty())
                 {
-                    if (crystal->GetGoState() == GO_STATE_ACTIVE)
+                    if (Creature* crystalChannelTarget = ObjectAccessor::GetCreature(*me, guid))
                     {
-                        SetCrystalStatus(crystal, false);
-                        break;
+                        if (active)
+                            crystalChannelTarget->AI()->SetData(summoners[i].spell, summoners[i].timer);
+                        else
+                            crystalChannelTarget->AI()->Reset();
                     }
                 }
             }
         }
 
-        if (++_crystalHandlerCount >= 4)
+        void SetCrystalsStatus(bool active)
         {
-            Talk(SAY_ARCANE_FIELD);
-            SetSummonerStatus(false);
-            SetBubbled(false);
-            events.ScheduleEvent(EVENT_ATTACK, 3s);
-            if (IsHeroic())
-                events.ScheduleEvent(EVENT_SUMMON_MINIONS, 15s);
+            for (uint8 i = 0; i < 4; i++)
+            {
+                ObjectGuid guid = instance->GetGuidData(DATA_NOVOS_CRYSTAL_1 + i);
+                if (!guid.IsEmpty())
+                    if (GameObject* crystal = ObjectAccessor::GetGameObject(*me, guid))
+                        SetCrystalStatus(crystal, active);
+            }
         }
-        else
+
+        void SetCrystalStatus(GameObject* crystal, bool active)
         {
+            crystal->SetGoState(active ? GO_STATE_ACTIVE : GO_STATE_READY);
+            if (Creature* crystalChannelTarget = crystal->FindNearestCreature(NPC_CRYSTAL_CHANNEL_TARGET, 5.0f))
+            {
+                if (active)
+                    crystalChannelTarget->CastSpell(nullptr, SPELL_BEAM_CHANNEL);
+                else if (crystalChannelTarget->HasUnitState(UNIT_STATE_CASTING))
+                    crystalChannelTarget->CastStop();
+            }
+        }
+
+        void CrystalHandlerDied()
+        {
+            for (uint8 i = 0; i < 4; i++)
+            {
+                ObjectGuid guid = instance->GetGuidData(DATA_NOVOS_CRYSTAL_1 + i);
+                if (!guid.IsEmpty())
+                {
+                    if (GameObject* crystal = ObjectAccessor::GetGameObject(*me, guid))
+                    {
+                        if (crystal->GetGoState() == GO_STATE_ACTIVE)
+                        {
+                            SetCrystalStatus(crystal, false);
+                            break;
+                        }
+                    }
+                }
+            }
+
             ObjectGuid guid = instance->GetGuidData(DATA_NOVOS_SUMMONER_4);
-            if (!guid.IsEmpty())
+            if (++_crystalHandlerCount >= 4)
+            {
+                Talk(SAY_ARCANE_FIELD);
+                SetSummonerStatus(false);
+                SetBubbled(false);
+                events.ScheduleEvent(EVENT_ATTACK, 3000);
+                if (IsHeroic())
+                    events.ScheduleEvent(EVENT_SUMMON_MINIONS, 15000);
+            }
+            else if (!guid.IsEmpty())
                 if (Creature* crystalChannelTarget = ObjectAccessor::GetCreature(*me, guid))
                     crystalChannelTarget->AI()->SetData(SPELL_SUMMON_CRYSTAL_HANDLER, 15000);
         }
-    }
 
-    uint8 _crystalHandlerCount;
-    bool _ohNovos;
-    bool _bubbled;
+        uint8 _crystalHandlerCount;
+        bool _ohNovos;
+        bool _bubbled;
+    };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return GetDrakTharonKeepAI<boss_novosAI>(creature);
+    }
 };
 
-struct npc_crystal_channel_target : public ScriptedAI
+class npc_crystal_channel_target : public CreatureScript
 {
-    npc_crystal_channel_target(Creature* creature) : ScriptedAI(creature)
-    {
-        Initialize();
-    }
+public:
+    npc_crystal_channel_target() : CreatureScript("npc_crystal_channel_target") { }
 
-    void Initialize()
+    struct npc_crystal_channel_targetAI : public ScriptedAI
     {
-        _spell = 0;
-        _timer = 0;
-        _temp = 0;
-    }
-
-    void Reset() override
-    {
-        Initialize();
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (_spell)
+        npc_crystal_channel_targetAI(Creature* creature) : ScriptedAI(creature)
         {
-            if (_temp <= diff)
+            Initialize();
+        }
+
+        void Initialize()
+        {
+            _spell = 0;
+            _timer = 0;
+            _temp = 0;
+        }
+
+        void Reset() override
+        {
+            Initialize();
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (_spell)
             {
-                DoCast(_spell);
-                _temp = _timer;
+                if (_temp <= diff)
+                {
+                    DoCast(_spell);
+                    _temp = _timer;
+                }
+                else
+                    _temp -= diff;
             }
-            else
-                _temp -= diff;
         }
-    }
 
-    void SetData(uint32 id, uint32 value) override
-    {
-        _spell = id;
-        _timer = value;
-        _temp = value;
-    }
-
-    void JustSummoned(Creature* summon) override
-    {
-        if (InstanceScript* instance = me->GetInstanceScript())
+        void SetData(uint32 id, uint32 value) override
         {
-            ObjectGuid guid = instance->GetGuidData(DATA_NOVOS);
-            if (!guid.IsEmpty())
-                if (Creature* novos = ObjectAccessor::GetCreature(*me, guid))
-                    novos->AI()->JustSummoned(summon);
+            _spell = id;
+            _timer = value;
+            _temp = value;
         }
 
-        if (summon)
-            summon->GetMotionMaster()->MovePath(summon->GetEntry() * 100, false);
+        void JustSummoned(Creature* summon) override
+        {
+            if (InstanceScript* instance = me->GetInstanceScript())
+            {
+                ObjectGuid guid = instance->GetGuidData(DATA_NOVOS);
+                if (!guid.IsEmpty())
+                    if (Creature* novos = ObjectAccessor::GetCreature(*me, guid))
+                        novos->AI()->JustSummoned(summon);
+            }
 
-        if (_spell == SPELL_SUMMON_CRYSTAL_HANDLER)
-            Reset();
+            if (summon)
+                summon->GetMotionMaster()->MovePath(summon->GetEntry() * 100, false);
+
+            if (_spell == SPELL_SUMMON_CRYSTAL_HANDLER)
+                Reset();
+        }
+
+    private:
+        uint32 _spell;
+        uint32 _timer;
+        uint32 _temp;
+    };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return GetDrakTharonKeepAI<npc_crystal_channel_targetAI>(creature);
     }
-
-private:
-    uint32 _spell;
-    uint32 _timer;
-    uint32 _temp;
 };
 
 class achievement_oh_novos : public AchievementCriteriaScript
@@ -365,32 +386,42 @@ public:
     }
 };
 
-// 59910 - Summon Minions
-class spell_novos_summon_minions : public SpellScript
+class spell_novos_summon_minions : public SpellScriptLoader
 {
-    PrepareSpellScript(spell_novos_summon_minions);
+    public:
+        spell_novos_summon_minions() : SpellScriptLoader("spell_novos_summon_minions") { }
 
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo({ SPELL_SUMMON_COPY_OF_MINIONS });
-    }
+        class spell_novos_summon_minions_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_novos_summon_minions_SpellScript);
 
-    void HandleScript(SpellEffIndex /*effIndex*/)
-    {
-        for (uint8 i = 0; i < 2; ++i)
-            GetCaster()->CastSpell(nullptr, SPELL_SUMMON_COPY_OF_MINIONS, true);
-    }
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                return ValidateSpellInfo({ SPELL_SUMMON_COPY_OF_MINIONS });
+            }
 
-    void Register() override
-    {
-        OnEffectHitTarget += SpellEffectFn(spell_novos_summon_minions::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
-    }
+            void HandleScript(SpellEffIndex /*effIndex*/)
+            {
+                for (uint8 i = 0; i < 2; ++i)
+                    GetCaster()->CastSpell(nullptr, SPELL_SUMMON_COPY_OF_MINIONS, true);
+            }
+
+            void Register() override
+            {
+                OnEffectHitTarget += SpellEffectFn(spell_novos_summon_minions_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
+            }
+        };
+
+        SpellScript* GetSpellScript() const override
+        {
+            return new spell_novos_summon_minions_SpellScript();
+        }
 };
 
 void AddSC_boss_novos()
 {
-    RegisterDrakTharonKeepCreatureAI(boss_novos);
-    RegisterDrakTharonKeepCreatureAI(npc_crystal_channel_target);
-    RegisterSpellScript(spell_novos_summon_minions);
+    new boss_novos();
+    new npc_crystal_channel_target();
+    new spell_novos_summon_minions();
     new achievement_oh_novos();
 }

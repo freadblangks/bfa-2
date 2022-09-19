@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -51,11 +51,11 @@ public:
                 DoCast(me, SPELL_VIRULENT_POISON);
         }
 
-        void JustEngagedWith(Unit* who) override
+        void EnterCombat(Unit* /*who*/) override
         {
-            BossAI::JustEngagedWith(who);
-            events.ScheduleEvent(EVENT_WEB_SPRAY, 3s, 5s);
-            events.ScheduleEvent(EVENT_CURSE_OF_TUTENKASH, 9s, 14s);
+            _EnterCombat();
+            events.ScheduleEvent(EVENT_WEB_SPRAY, urand(3000, 5000));
+            events.ScheduleEvent(EVENT_CURSE_OF_TUTENKASH, urand(9000, 14000));
         }
 
         void JustDied(Unit* /*killer*/) override
@@ -78,16 +78,16 @@ public:
                 switch (eventId)
                 {
                     case EVENT_WEB_SPRAY:
-                        if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 100, false))
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100, false))
                         {
                             if (!target->HasAura(SPELL_WEB_SPRAY))
                                 DoCast(target, SPELL_WEB_SPRAY);
                         }
-                        events.ScheduleEvent(EVENT_WEB_SPRAY, 6s, 8s);
+                        events.ScheduleEvent(EVENT_WEB_SPRAY, urand(6000, 8000));
                         break;
                     case EVENT_CURSE_OF_TUTENKASH:
                         DoCast(me, SPELL_CURSE_OF_TUTENKASH);
-                        events.ScheduleEvent(EVENT_CURSE_OF_TUTENKASH, 15s, 25s);
+                        events.ScheduleEvent(EVENT_CURSE_OF_TUTENKASH, urand(15000, 25000));
                         break;
                 }
 

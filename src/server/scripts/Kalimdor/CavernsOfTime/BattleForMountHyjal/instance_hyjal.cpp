@@ -1,5 +1,5 @@
  /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -30,7 +30,6 @@ EndScriptData */
 #include "InstanceScript.h"
 #include "Log.h"
 #include "Map.h"
-#include <sstream>
 
 /* Battle of Mount Hyjal encounters:
 0 - Rage Winterchill event
@@ -129,10 +128,7 @@ public:
                 case ARCHIMONDE:
                     Archimonde = creature->GetGUID();
                     if (GetData(DATA_AZGALOREVENT) != DONE)
-                    {
                         creature->SetVisible(false);
-                        creature->SetReactState(REACT_PASSIVE);
-                    }
                     break;
                 case JAINA:
                     JainaProudmoore = creature->GetGUID();
@@ -186,7 +182,6 @@ public:
                         if (Creature* archimonde = instance->GetCreature(Archimonde))
                         {
                             archimonde->SetVisible(true);
-                            archimonde->SetReactState(REACT_AGGRESSIVE);
 
                             if (!ArchiYell)
                             {
@@ -217,7 +212,7 @@ public:
                             for (GuidList::const_iterator itr = m_uiAncientGemGUID.begin(); itr != m_uiAncientGemGUID.end(); ++itr)
                             {
                                 //don't know how long it expected
-                                DoRespawnGameObject(*itr, 24h);
+                                DoRespawnGameObject(*itr, DAY);
                             }
                         }
                     }
@@ -284,7 +279,7 @@ public:
             return str_data;
         }
 
-        void Load(char const* in) override
+        void Load(const char* in) override
         {
             if (!in)
             {

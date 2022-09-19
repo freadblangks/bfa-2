@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -28,7 +28,7 @@ uint32 const EncounterCount = 3;
 enum ANDataTypes
 {
     // Encounter States/Boss GUIDs
-    DATA_KRIKTHIR                   = 0,
+    DATA_KRIKTHIR_THE_GATEWATCHER   = 0,
     DATA_HADRONOX                   = 1,
     DATA_ANUBARAK                   = 2,
 
@@ -37,8 +37,7 @@ enum ANDataTypes
     DATA_WATCHER_GASHRA,
     DATA_WATCHER_SILTHIK,
     DATA_ANUBARAK_WALL,
-    DATA_ANUBARAK_WALL_2,
-    DATA_GATEWATCHER_GREET
+    DATA_ANUBARAK_WALL_2
 };
 
 enum ANCreatureIds
@@ -66,12 +65,10 @@ enum ANInstanceActions
     ACTION_GATEWATCHER_GREET        = 1
 };
 
-template <class AI, class T>
-inline AI* GetAzjolNerubAI(T* obj)
+template<typename AI>
+inline AI* GetAzjolNerubAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, AzjolNerubScriptName);
+    return GetInstanceAI<AI>(creature, AzjolNerubScriptName);
 }
-
-#define RegisterAzjolNerubCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetAzjolNerubAI)
 
 #endif // AZJOL_NERUB_H_

@@ -1,5 +1,5 @@
-/*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ /*
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -65,13 +65,16 @@ enum Creatures
 # npc_barnesAI
 ######*/
 
-enum Misc
-{
-    OZ_GOSSIP1_MID              = 7421, // I'm not an actor.
-    OZ_GOSSIP1_OID              = 0,
-    OZ_GOSSIP2_MID              = 7422, // Ok, I'll give it a try, then.
-    OZ_GOSSIP2_OID              = 0,
-};
+#define GOSSIP_READY        "I'm not an actor."
+
+#define SAY_READY           "Splendid, I'm going to get the audience ready. Break a leg!"
+#define SAY_OZ_INTRO1       "Finally, everything is in place. Are you ready for your big stage debut?"
+#define OZ_GOSSIP1          "I'm not an actor."
+#define SAY_OZ_INTRO2       "Don't worry, you'll be fine. You look like a natural!"
+#define OZ_GOSSIP2          "Ok, I'll give it a try, then."
+
+#define SAY_RAJ_INTRO1      "The romantic plays are really tough, but you'll do better this time. You have TALENT. Ready?"
+#define RAJ_GOSSIP1         "I've never been more ready."
 
 #define OZ_GM_GOSSIP1       "[GM] Change event to EVENT_OZ"
 #define OZ_GM_GOSSIP2       "[GM] Change event to EVENT_HOOD"
@@ -127,9 +130,9 @@ class npc_barnes : public CreatureScript
 public:
     npc_barnes() : CreatureScript("npc_barnes") { }
 
-    struct npc_barnesAI : public EscortAI
+    struct npc_barnesAI : public npc_escortAI
     {
-        npc_barnesAI(Creature* creature) : EscortAI(creature)
+        npc_barnesAI(Creature* creature) : npc_escortAI(creature)
         {
             Initialize();
             RaidWiped = false;
@@ -178,9 +181,9 @@ public:
             Start(false, false);
         }
 
-        void JustEngagedWith(Unit* /*who*/) override { }
+        void EnterCombat(Unit* /*who*/) override { }
 
-        void WaypointReached(uint32 waypointId, uint32 /*pathId*/) override
+        void WaypointReached(uint32 waypointId) override
         {
             switch (waypointId)
             {
@@ -194,9 +197,9 @@ public:
 
                     if (Creature* spotlight = me->SummonCreature(NPC_SPOTLIGHT,
                         me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), 0.0f,
-                        TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 1min))
+                        TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 60000))
                     {
-                        spotlight->SetUnitFlag(UNIT_FLAG_UNINTERACTIBLE);
+                        spotlight->AddUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
                         spotlight->CastSpell(spotlight, SPELL_SPOTLIGHT, false);
                         m_uiSpotlightGUID = spotlight->GetGUID();
                     }
@@ -271,8 +274,12 @@ public:
                 uint32 entry = ((uint32)Spawns[index][0]);
                 float PosX = Spawns[index][1];
 
-                if (Creature* creature = me->SummonCreature(entry, PosX, SPAWN_Y, SPAWN_Z, SPAWN_O, TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 2h))
-                    creature->SetUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
+                if (Creature* creature = me->SummonCreature(entry, PosX, SPAWN_Y, SPAWN_Z, SPAWN_O, TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, HOUR*2*IN_MILLISECONDS))
+                {
+                    // In case database has bad flags
+                    creature->SetUnitFlags(UnitFlags(0));
+                    creature->AddUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
+                }
             }
 
             RaidWiped = false;
@@ -280,7 +287,7 @@ public:
 
         void UpdateAI(uint32 diff) override
         {
-            EscortAI::UpdateAI(diff);
+            npc_escortAI::UpdateAI(diff);
 
             if (HasEscortState(STATE_ESCORT_PAUSED))
             {
@@ -306,7 +313,7 @@ public:
                 {
                     if (WipeTimer <= diff)
                     {
-                        Map::PlayerList const& PlayerList = me->GetMap()->GetPlayers();
+                        Map::PlayerList const &PlayerList = me->GetMap()->GetPlayers();
                         if (PlayerList.isEmpty())
                             return;
 
@@ -322,6 +329,7 @@ public:
 
                         if (RaidWiped)
                         {
+                            RaidWiped = true;
                             EnterEvadeMode();
                             return;
                         }
@@ -331,69 +339,74 @@ public:
                 }
             }
         }
+    };
 
-        bool OnGossipSelect(Player* player, uint32 /*menuId*/, uint32 gossipListId) override
+    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
+    {
+        ClearGossipMenuFor(player);
+        npc_barnesAI* pBarnesAI = ENSURE_AI(npc_barnes::npc_barnesAI, creature->AI());
+
+        switch (action)
         {
-            uint32 const action = player->PlayerTalkClass->GetGossipOptionAction(gossipListId);
-            ClearGossipMenuFor(player);
-
-            switch (action)
-            {
-                case GOSSIP_ACTION_INFO_DEF + 1:
-                    AddGossipItemFor(player, OZ_GOSSIP2_MID, OZ_GOSSIP2_OID, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
-                    SendGossipMenuFor(player, 8971, me->GetGUID());
-                    break;
-                case GOSSIP_ACTION_INFO_DEF + 2:
-                    CloseGossipMenuFor(player);
-                    m_uiEventId = urand(EVENT_OZ, EVENT_RAJ);
-                    StartEvent();
-                    break;
-                case GOSSIP_ACTION_INFO_DEF + 3:
-                    CloseGossipMenuFor(player);
-                    m_uiEventId = EVENT_OZ;
-                    TC_LOG_DEBUG("scripts", "player (%s) manually set Opera event to EVENT_OZ", player->GetGUID().ToString().c_str());
-                    break;
-                case GOSSIP_ACTION_INFO_DEF + 4:
-                    CloseGossipMenuFor(player);
-                    m_uiEventId = EVENT_HOOD;
-                    TC_LOG_DEBUG("scripts", "player (%s) manually set Opera event to EVENT_HOOD", player->GetGUID().ToString().c_str());
-                    break;
-                case GOSSIP_ACTION_INFO_DEF + 5:
-                    CloseGossipMenuFor(player);
-                    m_uiEventId = EVENT_RAJ;
-                    TC_LOG_DEBUG("scripts", "player (%s) manually set Opera event to EVENT_RAJ", player->GetGUID().ToString().c_str());
-                    break;
-            }
-
-            return true;
+            case GOSSIP_ACTION_INFO_DEF+1:
+                AddGossipItemFor(player, GOSSIP_ICON_CHAT, OZ_GOSSIP2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+2);
+                SendGossipMenuFor(player, 8971, creature->GetGUID());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+2:
+                CloseGossipMenuFor(player);
+                pBarnesAI->StartEvent();
+                break;
+            case GOSSIP_ACTION_INFO_DEF+3:
+                CloseGossipMenuFor(player);
+                pBarnesAI->m_uiEventId = EVENT_OZ;
+                TC_LOG_DEBUG("scripts", "player (%s) manually set Opera event to EVENT_OZ", player->GetGUID().ToString().c_str());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+4:
+                CloseGossipMenuFor(player);
+                pBarnesAI->m_uiEventId = EVENT_HOOD;
+                TC_LOG_DEBUG("scripts", "player (%s) manually set Opera event to EVENT_HOOD", player->GetGUID().ToString().c_str());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+5:
+                CloseGossipMenuFor(player);
+                pBarnesAI->m_uiEventId = EVENT_RAJ;
+                TC_LOG_DEBUG("scripts", "player (%s) manually set Opera event to EVENT_RAJ", player->GetGUID().ToString().c_str());
+                break;
         }
 
-        bool OnGossipHello(Player* player) override
+        return true;
+    }
+
+    bool OnGossipHello(Player* player, Creature* creature) override
+    {
+        if (InstanceScript* instance = creature->GetInstanceScript())
         {
             // Check for death of Moroes and if opera event is not done already
             if (instance->GetBossState(DATA_MOROES) == DONE && instance->GetBossState(DATA_OPERA_PERFORMANCE) != DONE)
             {
-                AddGossipItemFor(player, OZ_GOSSIP1_MID, OZ_GOSSIP1_OID, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+                AddGossipItemFor(player, GOSSIP_ICON_CHAT, OZ_GOSSIP1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
 
                 if (player->IsGameMaster())
                 {
-                    AddGossipItemFor(player, GossipOptionNpc::None, OZ_GM_GOSSIP1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
-                    AddGossipItemFor(player, GossipOptionNpc::None, OZ_GM_GOSSIP2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
-                    AddGossipItemFor(player, GossipOptionNpc::None, OZ_GM_GOSSIP3, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 5);
+                    AddGossipItemFor(player, GOSSIP_ICON_DOT, OZ_GM_GOSSIP1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
+                    AddGossipItemFor(player, GOSSIP_ICON_DOT, OZ_GM_GOSSIP2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
+                    AddGossipItemFor(player, GOSSIP_ICON_DOT, OZ_GM_GOSSIP3, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 5);
                 }
 
-                if (!RaidWiped)
-                    SendGossipMenuFor(player, 8970, me->GetGUID());
-                else
-                    SendGossipMenuFor(player, 8975, me->GetGUID());
+                if (npc_barnesAI* pBarnesAI = CAST_AI(npc_barnes::npc_barnesAI, creature->AI()))
+                {
+                    if (!pBarnesAI->RaidWiped)
+                        SendGossipMenuFor(player, 8970, creature->GetGUID());
+                    else
+                        SendGossipMenuFor(player, 8975, creature->GetGUID());
 
-                return true;
+                    return true;
+                }
             }
-
-            SendGossipMenuFor(player, 8978, me->GetGUID());
-            return true;
         }
-    };
+
+        SendGossipMenuFor(player, 8978, creature->GetGUID());
+        return true;
+    }
 
     CreatureAI* GetAI(Creature* creature) const override
     {
@@ -405,18 +418,16 @@ public:
 # npc_image_of_medivh
 ####*/
 
-enum
-{
-    SAY_DIALOG_MEDIVH_1             = 0,
-    SAY_DIALOG_ARCANAGOS_2          = 0,
-    SAY_DIALOG_MEDIVH_3             = 1,
-    SAY_DIALOG_ARCANAGOS_4          = 1,
-    SAY_DIALOG_MEDIVH_5             = 2,
-    SAY_DIALOG_ARCANAGOS_6          = 2,
-    EMOTE_DIALOG_MEDIVH_7           = 3,
-    SAY_DIALOG_ARCANAGOS_8          = 3,
-    SAY_DIALOG_MEDIVH_9             = 4
-};
+#define SAY_DIALOG_MEDIVH_1         "You've got my attention, dragon. You'll find I'm not as easily scared as the villagers below."
+#define SAY_DIALOG_ARCANAGOS_2      "Your dabbling in the arcane has gone too far, Medivh. You've attracted the attention of powers beyond your understanding. You must leave Karazhan at once!"
+#define SAY_DIALOG_MEDIVH_3         "You dare challenge me at my own dwelling? Your arrogance is astounding, even for a dragon!"
+#define SAY_DIALOG_ARCANAGOS_4      "A dark power seeks to use you, Medivh! If you stay, dire days will follow. You must hurry, we don't have much time!"
+#define SAY_DIALOG_MEDIVH_5         "I do not know what you speak of, dragon... but I will not be bullied by this display of insolence. I'll leave Karazhan when it suits me!"
+#define SAY_DIALOG_ARCANAGOS_6      "You leave me no alternative. I will stop you by force if you won't listen to reason!"
+#define EMOTE_DIALOG_MEDIVH_7       "begins to cast a spell of great power, weaving his own essence into the magic."
+#define SAY_DIALOG_ARCANAGOS_8      "What have you done, wizard? This cannot be! I'm burning from... within!"
+#define SAY_DIALOG_MEDIVH_9         "He should not have angered me. I must go... recover my strength now..."
+
 
 static float MedivPos[4] = {-11161.49f, -1902.24f, 91.48f, 1.94f};
 static float ArcanagosPos[4] = {-11169.75f, -1881.48f, 95.39f, 4.83f};
@@ -463,7 +474,6 @@ public:
         void Reset() override
         {
             Initialize();
-            me->SetUnitFlag(UNIT_FLAG_NON_ATTACKABLE);
 
             if (instance->GetGuidData(DATA_IMAGE_OF_MEDIVH).IsEmpty())
             {
@@ -476,7 +486,7 @@ public:
                 me->DespawnOrUnsummon();
             }
         }
-        void JustEngagedWith(Unit* /*who*/) override { }
+        void EnterCombat(Unit* /*who*/) override { }
 
         void MovementInform(uint32 type, uint32 id) override
         {
@@ -494,7 +504,7 @@ public:
         {
             Step = 1;
             EventStarted = true;
-            Creature* Arcanagos = me->SummonCreature(NPC_ARCANAGOS, ArcanagosPos[0], ArcanagosPos[1], ArcanagosPos[2], 0, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 20s);
+            Creature* Arcanagos = me->SummonCreature(NPC_ARCANAGOS, ArcanagosPos[0], ArcanagosPos[1], ArcanagosPos[2], 0, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 20000);
             if (!Arcanagos)
                 return;
             ArcanagosGUID = Arcanagos->GetGUID();
@@ -511,25 +521,25 @@ public:
             {
             case 0: return 9999999;
             case 1:
-                Talk(SAY_DIALOG_MEDIVH_1);
+                me->Yell(SAY_DIALOG_MEDIVH_1, LANG_UNIVERSAL);
                 return 10000;
             case 2:
                 if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
-                    arca->AI()->Talk(SAY_DIALOG_ARCANAGOS_2);
+                    arca->Yell(SAY_DIALOG_ARCANAGOS_2, LANG_UNIVERSAL);
                 return 20000;
             case 3:
-                Talk(SAY_DIALOG_MEDIVH_3);
+                me->Yell(SAY_DIALOG_MEDIVH_3, LANG_UNIVERSAL);
                 return 10000;
             case 4:
                 if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
-                    arca->AI()->Talk(SAY_DIALOG_ARCANAGOS_4);
+                    arca->Yell(SAY_DIALOG_ARCANAGOS_4, LANG_UNIVERSAL);
                 return 20000;
             case 5:
-                Talk(SAY_DIALOG_MEDIVH_5);
+                me->Yell(SAY_DIALOG_MEDIVH_5, LANG_UNIVERSAL);
                 return 20000;
             case 6:
                 if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
-                    arca->AI()->Talk(SAY_DIALOG_ARCANAGOS_6);
+                    arca->Yell(SAY_DIALOG_ARCANAGOS_6, LANG_UNIVERSAL);
                 return 10000;
             case 7:
                 FireArcanagosTimer = 500;
@@ -539,7 +549,7 @@ public:
                 DoCast(me, SPELL_MANA_SHIELD);
                 return 10000;
             case 9:
-                Talk(EMOTE_DIALOG_MEDIVH_7);
+                me->TextEmote(EMOTE_DIALOG_MEDIVH_7);
                 return 10000;
             case 10:
                 if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
@@ -547,27 +557,26 @@ public:
                 return 1000;
             case 11:
                 if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
-                    arca->AI()->Talk(SAY_DIALOG_ARCANAGOS_8);
+                    arca->Yell(SAY_DIALOG_ARCANAGOS_8, LANG_UNIVERSAL);
                 return 5000;
             case 12:
                 if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
                 {
                     arca->GetMotionMaster()->MovePoint(0, -11010.82f, -1761.18f, 156.47f);
                     arca->setActive(true);
-                    arca->SetFarVisible(true);
                     arca->InterruptNonMeleeSpells(true);
                     arca->SetSpeedRate(MOVE_FLIGHT, 2.0f);
                 }
                 return 10000;
             case 13:
-                Talk(SAY_DIALOG_MEDIVH_9);
+                me->Yell(SAY_DIALOG_MEDIVH_9, LANG_UNIVERSAL);
                 return 10000;
             case 14:
             {
                 me->SetVisible(false);
                 me->ClearInCombat();
 
-                InstanceMap::PlayerList const& PlayerList = me->GetMap()->GetPlayers();
+                InstanceMap::PlayerList const &PlayerList = me->GetMap()->GetPlayers();
                 for (InstanceMap::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
                 {
                     if (i->GetSource()->IsAlive())
@@ -580,7 +589,7 @@ public:
             }
             case 15:
                 if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
-                    arca->KillSelf();
+                    arca->DealDamage(arca, arca->GetHealth(), nullptr, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, nullptr, false);
                 return 5000;
             default:
                 return 9999999;

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,8 +20,15 @@
 
 #include "CreatureAIImpl.h"
 
-#define BRDScriptName "instance_blackrock_depths"
 #define DataHeader "BRD"
+#define BRDScriptName "instance_blackrock_depths"
+
+enum BRDFactionIds
+{
+    FACTION_NEUTRAL            = 734,
+    FACTION_HOSTILE            = 754,
+    FACTION_FRIEND             = 35
+};
 
 enum BRDDataTypes
 {
@@ -59,12 +66,10 @@ enum BRDDataTypes
     DATA_COREN              = 28
 };
 
-template <class AI, class T>
+template<typename AI, typename T>
 inline AI* GetBlackrockDepthsAI(T* obj)
 {
     return GetInstanceAI<AI>(obj, BRDScriptName);
 }
-
-#define RegisterBlackrockDepthsCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetBlackrockDepthsAI)
 
 #endif

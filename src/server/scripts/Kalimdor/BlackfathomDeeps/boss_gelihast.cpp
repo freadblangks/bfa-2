@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -29,37 +29,48 @@ enum Events
     EVENT_THROW_NET   = 1
 };
 
-struct boss_gelihast : public BossAI
+class boss_gelihast : public CreatureScript
 {
-    boss_gelihast(Creature* creature) : BossAI(creature, DATA_GELIHAST) { }
+public:
+    boss_gelihast() : CreatureScript("boss_gelihast") { }
 
-    void JustEngagedWith(Unit* who) override
+    struct boss_gelihastAI : public BossAI
     {
-        BossAI::JustEngagedWith(who);
-        events.ScheduleEvent(EVENT_THROW_NET, 2s, 4s);
-    }
+        boss_gelihastAI(Creature* creature) : BossAI(creature, DATA_GELIHAST) { }
 
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        while (uint32 eventId = events.ExecuteEvent())
+        void EnterCombat(Unit* /*who*/) override
         {
-            if (eventId == EVENT_THROW_NET)
-            {
-                DoCastVictim(SPELL_NET);
-                events.ScheduleEvent(EVENT_THROW_NET, 4s, 7s);
-            }
+            _EnterCombat();
+            events.ScheduleEvent(EVENT_THROW_NET, urand(2000, 4000));
         }
 
-        DoMeleeAttackIfReady();
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim())
+                return;
+
+            events.Update(diff);
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                if (eventId == EVENT_THROW_NET)
+                {
+                    DoCastVictim(SPELL_NET);
+                    events.ScheduleEvent(EVENT_THROW_NET, urand(4000, 7000));
+                }
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return GetBlackfathomDeepsAI<boss_gelihastAI>(creature);
     }
 };
 
 void AddSC_boss_gelihast()
 {
-    RegisterBlackfathomDeepsCreatureAI(boss_gelihast);
+    new boss_gelihast();
 }

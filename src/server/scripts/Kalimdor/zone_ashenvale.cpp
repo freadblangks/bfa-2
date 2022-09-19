@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -28,7 +28,6 @@ EndContentData */
 
 #include "ScriptMgr.h"
 #include "GameObject.h"
-#include "GameObjectAI.h"
 #include "Player.h"
 #include "ScriptedEscortAI.h"
 #include "SpellInfo.h"
@@ -44,9 +43,8 @@ enum RuulSnowhoof
     NPC_THISTLEFUR_TOTEMIC      = 3922,
     NPC_THISTLEFUR_PATHFINDER   = 3926,
     QUEST_FREEDOM_TO_RUUL       = 6482,
-    GO_CAGE                     = 178147,
-    RUUL_SHAPECHANGE            = 20514,
-    SAY_FINISH                  = 0
+    FACTION_QUEST               = 113,
+    GO_CAGE                     = 178147
 };
 
 Position const RuulSnowhoofSummonsCoord[6] =
@@ -64,9 +62,9 @@ class npc_ruul_snowhoof : public CreatureScript
 public:
     npc_ruul_snowhoof() : CreatureScript("npc_ruul_snowhoof") { }
 
-    struct npc_ruul_snowhoofAI : public EscortAI
+    struct npc_ruul_snowhoofAI : public npc_escortAI
     {
-        npc_ruul_snowhoofAI(Creature* creature) : EscortAI(creature) { }
+        npc_ruul_snowhoofAI(Creature* creature) : npc_escortAI(creature) { }
 
         void Reset() override
         {
@@ -74,23 +72,23 @@ public:
                 Cage->SetGoState(GO_STATE_READY);
         }
 
-        void JustEngagedWith(Unit* /*who*/) override { }
+        void EnterCombat(Unit* /*who*/) override { }
 
         void JustSummoned(Creature* summoned) override
         {
             summoned->AI()->AttackStart(me);
         }
 
-        void OnQuestAccept(Player* player, Quest const* quest) override
+        void sQuestAccept(Player* player, Quest const* quest) override
         {
             if (quest->GetQuestId() == QUEST_FREEDOM_TO_RUUL)
             {
-                me->SetFaction(FACTION_ESCORTEE_N_NEUTRAL_PASSIVE);
-                EscortAI::Start(true, false, player->GetGUID());
+                me->SetFaction(FACTION_QUEST);
+                npc_escortAI::Start(true, false, player->GetGUID());
             }
         }
 
-        void WaypointReached(uint32 waypointId, uint32 /*pathId*/) override
+        void WaypointReached(uint32 waypointId) override
         {
             Player* player = GetPlayerForEscort();
             if (!player)
@@ -104,19 +102,16 @@ public:
                         Cage->SetGoState(GO_STATE_ACTIVE);
                     break;
                 case 13:
-                    me->SummonCreature(NPC_THISTLEFUR_TOTEMIC, RuulSnowhoofSummonsCoord[0], TEMPSUMMON_DEAD_DESPAWN, 1min);
-                    me->SummonCreature(NPC_THISTLEFUR_URSA, RuulSnowhoofSummonsCoord[1], TEMPSUMMON_DEAD_DESPAWN, 1min);
-                    me->SummonCreature(NPC_THISTLEFUR_PATHFINDER, RuulSnowhoofSummonsCoord[2], TEMPSUMMON_DEAD_DESPAWN, 1min);
+                    me->SummonCreature(NPC_THISTLEFUR_TOTEMIC, RuulSnowhoofSummonsCoord[0], TEMPSUMMON_DEAD_DESPAWN, 60000);
+                    me->SummonCreature(NPC_THISTLEFUR_URSA, RuulSnowhoofSummonsCoord[1], TEMPSUMMON_DEAD_DESPAWN, 60000);
+                    me->SummonCreature(NPC_THISTLEFUR_PATHFINDER, RuulSnowhoofSummonsCoord[2], TEMPSUMMON_DEAD_DESPAWN, 60000);
                     break;
                 case 19:
-                    me->SummonCreature(NPC_THISTLEFUR_TOTEMIC, RuulSnowhoofSummonsCoord[3], TEMPSUMMON_DEAD_DESPAWN, 1min);
-                    me->SummonCreature(NPC_THISTLEFUR_URSA, RuulSnowhoofSummonsCoord[4], TEMPSUMMON_DEAD_DESPAWN, 1min);
-                    me->SummonCreature(NPC_THISTLEFUR_PATHFINDER, RuulSnowhoofSummonsCoord[5], TEMPSUMMON_DEAD_DESPAWN, 1min);
+                    me->SummonCreature(NPC_THISTLEFUR_TOTEMIC, RuulSnowhoofSummonsCoord[3], TEMPSUMMON_DEAD_DESPAWN, 60000);
+                    me->SummonCreature(NPC_THISTLEFUR_URSA, RuulSnowhoofSummonsCoord[4], TEMPSUMMON_DEAD_DESPAWN, 60000);
+                    me->SummonCreature(NPC_THISTLEFUR_PATHFINDER, RuulSnowhoofSummonsCoord[5], TEMPSUMMON_DEAD_DESPAWN, 60000);
                     break;
-                case 27:
-                    me->SetFaction(me->GetCreatureTemplate()->faction);
-                    me->RemoveAurasDueToSpell(RUUL_SHAPECHANGE);
-                    Talk(SAY_FINISH, player);
+                case 21:
                     player->GroupEventHappens(QUEST_FREEDOM_TO_RUUL, me);
                     break;
             }
@@ -124,14 +119,7 @@ public:
 
         void UpdateAI(uint32 diff) override
         {
-            EscortAI::UpdateAI(diff);
-        }
-
-        void EnterEvadeMode(EvadeReason why) override
-        {
-            if (!me->HasAura(RUUL_SHAPECHANGE))
-                me->AddAura(RUUL_SHAPECHANGE, me);
-            ScriptedAI::EnterEvadeMode(why);
+            npc_escortAI::UpdateAI(diff);
         }
     };
 
@@ -191,9 +179,9 @@ class npc_muglash : public CreatureScript
 public:
     npc_muglash() : CreatureScript("npc_muglash") { }
 
-    struct npc_muglashAI : public EscortAI
+    struct npc_muglashAI : public npc_escortAI
     {
-        npc_muglashAI(Creature* creature) : EscortAI(creature)
+        npc_muglashAI(Creature* creature) : npc_escortAI(creature)
         {
             Initialize();
         }
@@ -210,7 +198,7 @@ public:
             Initialize();
         }
 
-        void JustEngagedWith(Unit* /*who*/) override
+        void EnterCombat(Unit* /*who*/) override
         {
             if (Player* player = GetPlayerForEscort())
                 if (HasEscortState(STATE_ESCORT_PAUSED))
@@ -233,17 +221,17 @@ public:
             summoned->AI()->AttackStart(me);
         }
 
-        void OnQuestAccept(Player* player, Quest const* quest) override
+        void sQuestAccept(Player* player, Quest const* quest) override
         {
             if (quest->GetQuestId() == QUEST_VORSHA)
             {
                 Talk(SAY_MUG_START1);
-                me->SetFaction(FACTION_ESCORTEE_N_NEUTRAL_PASSIVE);
-                EscortAI::Start(true, false, player->GetGUID());
+                me->SetFaction(FACTION_QUEST);
+                npc_escortAI::Start(true, false, player->GetGUID());
             }
         }
 
-            void WaypointReached(uint32 waypointId, uint32 /*pathId*/) override
+            void WaypointReached(uint32 waypointId) override
             {
                 if (Player* player = GetPlayerForEscort())
                 {
@@ -280,17 +268,17 @@ public:
                 switch (waveId)
                 {
                     case 1:
-                        me->SummonCreature(NPC_WRATH_RIDER,     FirstNagaCoord[0], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1min);
-                        me->SummonCreature(NPC_WRATH_SORCERESS, FirstNagaCoord[1], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1min);
-                        me->SummonCreature(NPC_WRATH_RAZORTAIL, FirstNagaCoord[2], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1min);
+                        me->SummonCreature(NPC_WRATH_RIDER,     FirstNagaCoord[0], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
+                        me->SummonCreature(NPC_WRATH_SORCERESS, FirstNagaCoord[1], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
+                        me->SummonCreature(NPC_WRATH_RAZORTAIL, FirstNagaCoord[2], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
                         break;
                     case 2:
-                        me->SummonCreature(NPC_WRATH_PRIESTESS, SecondNagaCoord[0], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1min);
-                        me->SummonCreature(NPC_WRATH_MYRMIDON,  SecondNagaCoord[1], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1min);
-                        me->SummonCreature(NPC_WRATH_SEAWITCH,  SecondNagaCoord[2], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1min);
+                        me->SummonCreature(NPC_WRATH_PRIESTESS, SecondNagaCoord[0], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
+                        me->SummonCreature(NPC_WRATH_MYRMIDON,  SecondNagaCoord[1], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
+                        me->SummonCreature(NPC_WRATH_SEAWITCH,  SecondNagaCoord[2], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
                         break;
                     case 3:
-                        me->SummonCreature(NPC_VORSHA, VorshaCoord, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1min);
+                        me->SummonCreature(NPC_VORSHA, VorshaCoord, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
                         break;
                     case 4:
                         SetEscortPaused(false);
@@ -301,7 +289,7 @@ public:
 
             void UpdateAI(uint32 diff) override
             {
-                EscortAI::UpdateAI(diff);
+                npc_escortAI::UpdateAI(diff);
 
                 if (!me->GetVictim())
                 {
@@ -340,30 +328,20 @@ class go_naga_brazier : public GameObjectScript
     public:
         go_naga_brazier() : GameObjectScript("go_naga_brazier") { }
 
-        struct go_naga_brazierAI : public GameObjectAI
+        bool OnGossipHello(Player* /*player*/, GameObject* go) override
         {
-            go_naga_brazierAI(GameObject* go) : GameObjectAI(go) { }
-
-            bool OnGossipHello(Player* /*player*/) override
+            if (Creature* creature = GetClosestCreatureWithEntry(go, NPC_MUGLASH, INTERACTION_DISTANCE*2))
             {
-                if (Creature* creature = GetClosestCreatureWithEntry(me, NPC_MUGLASH, INTERACTION_DISTANCE * 2))
+                if (npc_muglash::npc_muglashAI* pEscortAI = CAST_AI(npc_muglash::npc_muglashAI, creature->AI()))
                 {
-                    if (npc_muglash::npc_muglashAI* pEscortAI = CAST_AI(npc_muglash::npc_muglashAI, creature->AI()))
-                    {
-                        creature->AI()->Talk(SAY_MUG_BRAZIER_WAIT);
+                    creature->AI()->Talk(SAY_MUG_BRAZIER_WAIT);
 
-                        pEscortAI->_isBrazierExtinguished = true;
-                        return false;
-                    }
+                    pEscortAI->_isBrazierExtinguished = true;
+                    return false;
                 }
-
-                return true;
             }
-        };
 
-        GameObjectAI* GetAI(GameObject* go) const override
-        {
-            return new go_naga_brazierAI(go);
+            return true;
         }
 };
 
@@ -372,7 +350,6 @@ enum KingoftheFoulwealdMisc
     GO_BANNER = 178205
 };
 
-// 20783 - Destroy Karang's Banner
 class spell_destroy_karangs_banner : public SpellScriptLoader
 {
     public:

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,10 +16,10 @@
  */
 
 #include "ScriptMgr.h"
-#include "molten_core.h"
 #include "GameObject.h"
 #include "InstanceScript.h"
 #include "Map.h"
+#include "molten_core.h"
 #include "ScriptedCreature.h"
 #include "TemporarySummon.h"
 
@@ -133,7 +133,7 @@ class instance_molten_core : public InstanceMapScript
                         SummonMajordomoExecutus();
 
                 if (bossId == BOSS_MAJORDOMO_EXECUTUS && state == DONE)
-                    DoRespawnGameObject(_cacheOfTheFirelordGUID, 7_days);
+                    DoRespawnGameObject(_cacheOfTheFirelordGUID, 7 * DAY);
 
                 return true;
             }

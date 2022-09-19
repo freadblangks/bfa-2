@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,18 +21,16 @@
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "ScriptedCreature.h"
-#include "shattered_halls.h"
 #include "SpellScript.h"
+#include "shattered_halls.h"
 #include "TemporarySummon.h"
-
-Position const Executioner = { 152.8524f, -83.63912f, 2.021005f, 0.06981317f };
 
 class at_nethekurse_exit : public AreaTriggerScript
 {
     public:
         at_nethekurse_exit() : AreaTriggerScript("at_nethekurse_exit") { };
 
-        bool OnTrigger(Player* player, AreaTriggerEntry const*) override
+        bool OnTrigger(Player* player, AreaTriggerEntry const*, bool /*entered*/) override
         {
             if (InstanceScript* is = player->GetInstanceScript())
             {
@@ -89,30 +87,30 @@ class boss_shattered_executioner : public CreatureScript
                 // _Reset() resets the loot mode, so we add them again, if any
                 uint32 prisonersExecuted = instance->GetData(DATA_PRISONERS_EXECUTED);
                 if (prisonersExecuted == 0)
-                    me->AddLootMode(LOOT_MODE_HARD_MODE_3);
+                    me->AddLootMode(LOOT_MODE_MYTHIC_KEYSTONE);
                 if (prisonersExecuted <= 1)
-                    me->AddLootMode(LOOT_MODE_HARD_MODE_2);
+                    me->AddLootMode(LOOT_MODE_25_N);
                 if (prisonersExecuted <= 2)
-                    me->AddLootMode(LOOT_MODE_HARD_MODE_1);
+                    me->AddLootMode(LOOT_MODE_HEROIC);
 
                 if (instance->GetBossState(DATA_KARGATH) == DONE)
-                    me->SetImmuneToPC(false);
+                    me->RemoveUnitFlag(UNIT_FLAG_IMMUNE_TO_PC);
                 else
-                    me->SetImmuneToPC(true);
+                    me->AddUnitFlag(UNIT_FLAG_IMMUNE_TO_PC);
 
                 Initialize();
             }
 
             void JustSummoned(Creature*) override { } // avoid despawn of prisoners on death/reset
 
-            void JustDied(Unit* /*killer*/) override
+            void JustDied(Unit*) override
             {
                 _JustDied();
 
                 if (instance->GetData(DATA_PRISONERS_EXECUTED) > 0)
                     return;
 
-                Map::PlayerList const& players = instance->instance->GetPlayers();
+                Map::PlayerList const &players = instance->instance->GetPlayers();
                 for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
                 {
                     Player* pl = itr->GetSource();
@@ -127,11 +125,11 @@ class boss_shattered_executioner : public CreatureScript
                 if (type == DATA_PRISONERS_EXECUTED && data <= 3)
                 {
                     if (Creature* victim = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_FIRST_PRISONER + data - 1)))
-                        Unit::Kill(me, victim);
+                        me->Kill(victim);
 
                     if (data == 1)
                     {
-                        Map::PlayerList const& players = instance->instance->GetPlayers();
+                        Map::PlayerList const &players = instance->instance->GetPlayers();
                         for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
                         {
                             Player* pl = itr->GetSource();
@@ -144,16 +142,11 @@ class boss_shattered_executioner : public CreatureScript
                     switch (data)
                     {
                         case 3:
-                            me->RemoveLootMode(LOOT_MODE_HARD_MODE_1);
-                            [[fallthrough]];
+                            me->RemoveLootMode(LOOT_MODE_HEROIC);
                         case 2:
-                            me->RemoveLootMode(LOOT_MODE_HARD_MODE_2);
-                            [[fallthrough]];
+                            me->RemoveLootMode(LOOT_MODE_25_N);
                         case 1:
-                            me->RemoveLootMode(LOOT_MODE_HARD_MODE_3);
-                            [[fallthrough]];
-                        default:
-                            break;
+                            me->RemoveLootMode(LOOT_MODE_MYTHIC_KEYSTONE);
                     }
                 }
             }
@@ -183,7 +176,6 @@ class boss_shattered_executioner : public CreatureScript
         }
 };
 
-// 39288, 39289, 39290 - Kargath's Executioner
 class spell_kargath_executioner : public SpellScriptLoader
 {
     public:
@@ -218,7 +210,6 @@ class spell_kargath_executioner : public SpellScriptLoader
         }
 };
 
-// 39291 - Remove Kargath's Executioner
 class spell_remove_kargath_executioner : public SpellScriptLoader
 {
     public:

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,12 +22,10 @@
 
 #define TheUndebogScriptName "instance_the_underbog"
 
-template <class AI, class T>
-inline AI* GetTheUnderbogAI(T* obj)
+template<typename AI>
+inline AI* GetTheUnderbogAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, TheUndebogScriptName);
+    return GetInstanceAI<AI>(creature, TheUndebogScriptName);
 }
-
-#define RegisterTheUnderbogCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetTheUnderbogAI)
 
 #endif // the_underbog_h__

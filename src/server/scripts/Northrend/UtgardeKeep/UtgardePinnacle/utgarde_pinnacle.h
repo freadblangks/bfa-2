@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -97,13 +97,10 @@ enum UPGameObjectIds
     GO_KING_YMIRON_DOOR             = 192174
 };
 
-template <class AI, class T>
-inline AI* GetUtgardePinnacleAI(T* obj)
+template<typename AI>
+inline AI* GetUtgardePinnacleAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, UPScriptName);
+    return GetInstanceAI<AI>(creature, UPScriptName);
 }
-
-#define RegisterUtgardePinnacleCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetUtgardePinnacleAI)
-#define RegisterUtgardePinnacleGameObjectAI(ai_name) RegisterGameObjectAIWithFactory(ai_name, GetUtgardePinnacleAI)
 
 #endif // UTGARDE_PINNACLE_H_

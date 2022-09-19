@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -51,13 +51,13 @@ class boss_pit_lord_argaloth : public CreatureScript
         {
             boss_pit_lord_argalothAI(Creature* creature) : BossAI(creature, DATA_ARGALOTH) { }
 
-            void JustEngagedWith(Unit* who) override
+            void EnterCombat(Unit* /*who*/) override
             {
-                BossAI::JustEngagedWith(who);
+                _EnterCombat();
                 instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
-                events.ScheduleEvent(EVENT_METEOR_SLASH, 10s, 20s);
-                events.ScheduleEvent(EVENT_CONSUMING_DARKNESS, 20s, 25s);
-                events.ScheduleEvent(EVENT_BERSERK, 5min);
+                events.ScheduleEvent(EVENT_METEOR_SLASH, urand(10 * IN_MILLISECONDS, 20 * IN_MILLISECONDS));
+                events.ScheduleEvent(EVENT_CONSUMING_DARKNESS, urand(20 * IN_MILLISECONDS, 25 * IN_MILLISECONDS));
+                events.ScheduleEvent(EVENT_BERSERK, 5 * MINUTE * IN_MILLISECONDS);
             }
 
             void EnterEvadeMode(EvadeReason /*why*/) override
@@ -66,7 +66,7 @@ class boss_pit_lord_argaloth : public CreatureScript
                 _DespawnAtEvade();
             }
 
-            void DamageTaken(Unit* /*attacker*/, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo = nullptr*/) override
+            void DamageTaken(Unit* /*attacker*/, uint32& damage) override
             {
                 if (me->HealthBelowPctDamaged(33, damage) ||
                     me->HealthBelowPctDamaged(66, damage))
@@ -97,11 +97,11 @@ class boss_pit_lord_argaloth : public CreatureScript
                     {
                         case EVENT_METEOR_SLASH:
                             DoCastAOE(SPELL_METEOR_SLASH);
-                            events.ScheduleEvent(EVENT_METEOR_SLASH, 15s, 20s);
+                            events.ScheduleEvent(EVENT_METEOR_SLASH, urand(15 * IN_MILLISECONDS, 20 * IN_MILLISECONDS));
                             break;
                         case EVENT_CONSUMING_DARKNESS:
                             DoCastAOE(SPELL_CONSUMING_DARKNESS, true);
-                            events.ScheduleEvent(EVENT_CONSUMING_DARKNESS, 20s, 25s);
+                            events.ScheduleEvent(EVENT_CONSUMING_DARKNESS, urand(20 * IN_MILLISECONDS, 25 * IN_MILLISECONDS));
                             break;
                         case EVENT_BERSERK:
                             DoCast(me, SPELL_BERSERK, true);
@@ -173,7 +173,7 @@ class spell_argaloth_meteor_slash : public SpellScriptLoader
 
             void Register() override
             {
-                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_argaloth_meteor_slash_SpellScript::CountTargets, EFFECT_0, TARGET_UNIT_CONE_CASTER_TO_DEST_ENEMY);
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_argaloth_meteor_slash_SpellScript::CountTargets, EFFECT_0, TARGET_UNIT_CONE_ENEMY_104);
                 OnHit += SpellHitFn(spell_argaloth_meteor_slash_SpellScript::SplitDamage);
             }
 

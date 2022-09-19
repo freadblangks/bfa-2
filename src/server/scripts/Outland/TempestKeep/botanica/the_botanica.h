@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -43,12 +43,10 @@ enum BCCreatureIds
     NPC_WARP_SPLINTER                   = 17977
 };
 
-template <class AI, class T>
-inline AI* GetBotanicaAI(T* obj)
+template<typename AI>
+inline AI* GetBotanicaAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, BotanicaScriptName);
+    return GetInstanceAI<AI>(creature, BotanicaScriptName);
 }
-
-#define RegisterBotanicaCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetBotanicaAI)
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -51,12 +51,10 @@ enum HOLGameObjectIds
     GO_LOKEN_THRONE         = 192654
 };
 
-template <class AI, class T>
-inline AI* GetHallsOfLightningAI(T* obj)
+template<typename AI>
+inline AI* GetHallsOfLightningAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, HoLScriptName);
+    return GetInstanceAI<AI>(creature, HoLScriptName);
 }
-
-#define RegisterHallsOfLightningCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetHallsOfLightningAI)
 
 #endif // HALLS_OF_LIGHTNING_H_

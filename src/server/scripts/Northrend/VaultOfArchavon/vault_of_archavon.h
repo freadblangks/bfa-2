@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -30,7 +30,7 @@ enum VAData
     DATA_ARCHAVON       = 0,
     DATA_EMALON         = 1,
     DATA_KORALON        = 2,
-    DATA_TORAVON        = 3
+    DATA_TORAVON        = 3,
 };
 
 enum VACreatureIds
@@ -44,20 +44,18 @@ enum VACreatureIds
 enum VAAchievementCriteriaIds
 {
     CRITERIA_EARTH_WIND_FIRE_10 = 12018,
-    CRITERIA_EARTH_WIND_FIRE_25 = 12019
+    CRITERIA_EARTH_WIND_FIRE_25 = 12019,
 };
 
 enum VAAchievementSpells
 {
-    SPELL_EARTH_WIND_FIRE_ACHIEVEMENT_CHECK = 68308
+    SPELL_EARTH_WIND_FIRE_ACHIEVEMENT_CHECK = 68308,
 };
 
-template <class AI, class T>
-inline AI* GetVaultOfArchavonAI(T* obj)
+template<typename AI>
+inline AI* GetVaultOfArchavonAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, VoAScriptName);
+    return GetInstanceAI<AI>(creature, VoAScriptName);
 }
-
-#define RegisterVaultOfArchavonCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetVaultOfArchavonAI)
 
 #endif

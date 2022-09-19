@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -87,11 +87,6 @@ public:
                 case NPC_MOROES:
                     MoroesGUID = creature->GetGUID();
                     break;
-                case NPC_NIGHTBANE:
-                    NightbaneGUID = creature->GetGUID();
-                    break;
-                default:
-                    break;
             }
         }
 
@@ -168,7 +163,7 @@ public:
                     break;
                 case DATA_CHESS:
                     if (state == DONE)
-                        DoRespawnGameObject(DustCoveredChest, 24h);
+                        DoRespawnGameObject(DustCoveredChest, DAY);
                     break;
                 default:
                     break;
@@ -224,15 +219,12 @@ public:
                 case GO_SIDE_ENTRANCE_DOOR:
                     SideEntranceDoor = go->GetGUID();
                     if (GetBossState(DATA_OPERA_PERFORMANCE) == DONE)
-                        go->SetFlag(GO_FLAG_LOCKED);
+                        go->AddFlag(GO_FLAG_LOCKED);
                     else
                         go->RemoveFlag(GO_FLAG_LOCKED);
                     break;
                 case GO_DUST_COVERED_CHEST:
                     DustCoveredChest = go->GetGUID();
-                    break;
-                case GO_BLACKENED_URN:
-                    BlackenedUrnGUID = go->GetGUID();
                     break;
             }
 
@@ -273,8 +265,6 @@ public:
                     return TerestianGUID;
                 case DATA_MOROES:
                     return MoroesGUID;
-                case DATA_NIGHTBANE:
-                    return NightbaneGUID;
                 case DATA_GO_STAGEDOORLEFT:
                     return StageDoorLeftGUID;
                 case DATA_GO_STAGEDOORRIGHT:
@@ -299,8 +289,6 @@ public:
                     return MastersTerraceDoor[1];
                 case DATA_IMAGE_OF_MEDIVH:
                     return ImageGUID;
-                case DATA_GO_BLACKENED_URN:
-                    return BlackenedUrnGUID;
             }
 
             return ObjectGuid::Empty;
@@ -316,7 +304,6 @@ public:
         ObjectGuid KilrekGUID;
         ObjectGuid TerestianGUID;
         ObjectGuid MoroesGUID;
-        ObjectGuid NightbaneGUID;
         ObjectGuid LibraryDoor;                 // Door at Shade of Aran
         ObjectGuid MassiveDoor;                 // Door at Netherspite
         ObjectGuid SideEntranceDoor;            // Side Entrance
@@ -326,7 +313,6 @@ public:
         ObjectGuid MastersTerraceDoor[2];
         ObjectGuid ImageGUID;
         ObjectGuid DustCoveredChest;
-        ObjectGuid BlackenedUrnGUID;
     };
 };
 

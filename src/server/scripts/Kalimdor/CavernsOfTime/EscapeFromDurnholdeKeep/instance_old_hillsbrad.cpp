@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -136,7 +136,7 @@ public:
                         if (mBarrelCount == 5)
                         {
                             UpdateQuestCredit();
-                            player->SummonCreature(DRAKE_ENTRY, 2128.43f, 71.01f, 64.42f, 1.74f, TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 30min);
+                            player->SummonCreature(DRAKE_ENTRY, 2128.43f, 71.01f, 64.42f, 1.74f, TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 1800000);
                             m_auiEncounter[0] = DONE;
                         }
                     }
@@ -156,7 +156,7 @@ public:
                             m_auiEncounter[4] = NOT_STARTED;
                             m_auiEncounter[5] = NOT_STARTED;
                         }
-                        else
+                        else if (mThrallEventCount > 20)
                         {
                             m_auiEncounter[1] = data;
                             m_auiEncounter[2] = data;

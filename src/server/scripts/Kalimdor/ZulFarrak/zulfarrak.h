@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -56,10 +56,10 @@ enum ZFPyramidPhases
     PYRAMID_KILLED_ALL_TROLLS,
 };
 
-template <class AI, class T>
-inline AI* GetZulFarrakAI(T* obj)
+template<typename AI>
+inline AI* GetZulFarrakAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, ZFScriptName);
+    return GetInstanceAI<AI>(creature, ZFScriptName);
 }
 
 #endif

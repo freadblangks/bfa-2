@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -43,10 +43,12 @@ enum OHWorldStateIds
     WORLD_STATE_OH              = 2436
 };
 
-template <class AI, class T>
-inline AI* GetOldHillsbradAI(T* obj)
+
+template<typename AI>
+inline AI* GetOldHillsbradAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, OHScriptName);
+    return GetInstanceAI<AI>(creature, OHScriptName);
 }
+
 
 #endif

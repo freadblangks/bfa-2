@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,11 +39,6 @@ enum Events
     EVENT_AVATAROFFLAME                                    = 2
 };
 
-enum Emotes
-{
-    EMOTE_SHAKEN                                           = 0
-};
-
 class boss_emperor_dagran_thaurissan : public CreatureScript
 {
     public:
@@ -61,12 +56,12 @@ class boss_emperor_dagran_thaurissan : public CreatureScript
                 _events.Reset();
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void EnterCombat(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
                 me->CallForHelp(VISIBLE_RANGE);
-                _events.ScheduleEvent(EVENT_HANDOFTHAURISSAN, 4s);
-                _events.ScheduleEvent(EVENT_AVATAROFFLAME, 25s);
+                _events.ScheduleEvent(EVENT_HANDOFTHAURISSAN, 4000);
+                _events.ScheduleEvent(EVENT_AVATAROFFLAME, 25000);
             }
 
             void KilledUnit(Unit* who) override
@@ -80,8 +75,7 @@ class boss_emperor_dagran_thaurissan : public CreatureScript
                 if (Creature* moira = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(DATA_MOIRA)))
                 {
                     moira->AI()->EnterEvadeMode();
-                    moira->SetFaction(FACTION_FRIENDLY);
-                    moira->AI()->Talk(EMOTE_SHAKEN);
+                    moira->SetFaction(35);
                 }
             }
 
@@ -97,13 +91,13 @@ class boss_emperor_dagran_thaurissan : public CreatureScript
                     switch (eventId)
                     {
                         case EVENT_HANDOFTHAURISSAN:
-                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
+                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
                                 DoCast(target, SPELL_HANDOFTHAURISSAN);
-                            _events.ScheduleEvent(EVENT_HANDOFTHAURISSAN, 5s);
+                            _events.ScheduleEvent(EVENT_HANDOFTHAURISSAN, 5000);
                             break;
                         case EVENT_AVATAROFFLAME:
                             DoCastVictim(SPELL_AVATAROFFLAME);
-                            _events.ScheduleEvent(EVENT_AVATAROFFLAME, 18s);
+                            _events.ScheduleEvent(EVENT_AVATAROFFLAME, 18000);
                             break;
                         default:
                             break;

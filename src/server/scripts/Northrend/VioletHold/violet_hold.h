@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -155,13 +155,10 @@ enum VHInstanceMisc
     POINT_INTRO                                 = 1
 };
 
-template <class AI, class T>
-inline AI* GetVioletHoldAI(T* obj)
+template<typename AI>
+inline AI* GetVioletHoldAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, VioletHoldScriptName);
+    return GetInstanceAI<AI>(creature, VioletHoldScriptName);
 }
-
-#define RegisterVioletHoldCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetVioletHoldAI)
-#define RegisterVioletHoldGameObjectAI(ai_name) RegisterGameObjectAIWithFactory(ai_name, GetVioletHoldAI)
 
 #endif // VIOLET_HOLD_H_

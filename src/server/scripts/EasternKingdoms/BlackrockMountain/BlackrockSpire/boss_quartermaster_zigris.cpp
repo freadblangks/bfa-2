@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -33,59 +33,70 @@ enum Events
     EVENT_STUN_BOMB                 = 2
 };
 
-struct quartermaster_zigris : public BossAI
+class quartermaster_zigris : public CreatureScript
 {
-    quartermaster_zigris(Creature* creature) : BossAI(creature, DATA_QUARTERMASTER_ZIGRIS) { }
+public:
+    quartermaster_zigris() : CreatureScript("quartermaster_zigris") { }
 
-    void Reset() override
+    struct boss_quatermasterzigrisAI : public BossAI
     {
-        _Reset();
-    }
+        boss_quatermasterzigrisAI(Creature* creature) : BossAI(creature, DATA_QUARTERMASTER_ZIGRIS) { }
 
-    void JustEngagedWith(Unit* who) override
-    {
-        BossAI::JustEngagedWith(who);
-        events.ScheduleEvent(EVENT_SHOOT, 1s);
-        events.ScheduleEvent(EVENT_STUN_BOMB, 16s);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        _JustDied();
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        while (uint32 eventId = events.ExecuteEvent())
+        void Reset() override
         {
-            switch (eventId)
-            {
-                case EVENT_SHOOT:
-                    DoCastVictim(SPELL_SHOOT);
-                    events.ScheduleEvent(EVENT_SHOOT, 500ms);
-                    break;
-                case EVENT_STUN_BOMB:
-                    DoCastVictim(SPELL_STUNBOMB);
-                    events.ScheduleEvent(EVENT_STUN_BOMB, 14s);
-                    break;
-            }
+            _Reset();
+        }
+
+        void EnterCombat(Unit* /*who*/) override
+        {
+            _EnterCombat();
+            events.ScheduleEvent(EVENT_SHOOT,      1000);
+            events.ScheduleEvent(EVENT_STUN_BOMB, 16000);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            _JustDied();
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            if (!UpdateVictim())
+                return;
+
+            events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
                 return;
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case EVENT_SHOOT:
+                        DoCastVictim(SPELL_SHOOT);
+                        events.ScheduleEvent(EVENT_SHOOT, 500);
+                        break;
+                    case EVENT_STUN_BOMB:
+                        DoCastVictim(SPELL_STUNBOMB);
+                        events.ScheduleEvent(EVENT_STUN_BOMB, 14000);
+                        break;
+                }
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+            }
+            DoMeleeAttackIfReady();
         }
-        DoMeleeAttackIfReady();
+    };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return GetBlackrockSpireAI<boss_quatermasterzigrisAI>(creature);
     }
 };
 
 void AddSC_boss_quatermasterzigris()
 {
-    RegisterBlackrockSpireCreatureAI(quartermaster_zigris);
+    new quartermaster_zigris();
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -48,10 +48,10 @@ enum HRGameobjectIds
     GO_FEL_IRON_CHEST_HEROIC      = 185169
 };
 
-template <class AI, class T>
-inline AI* GetHellfireRampartsAI(T* obj)
+template<typename AI>
+inline AI* GetHellfireRampartsAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, HRScriptName);
+    return GetInstanceAI<AI>(creature, HRScriptName);
 }
 
 #endif

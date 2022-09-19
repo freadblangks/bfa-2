@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -86,12 +86,10 @@ enum DTKGameObjectIds
     GO_NOVOS_CRYSTAL_4                  = 189302
 };
 
-template <class AI, class T>
-inline AI* GetDrakTharonKeepAI(T* obj)
+template<typename AI>
+inline AI* GetDrakTharonKeepAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, DrakTharonKeepScriptName);
+    return GetInstanceAI<AI>(creature, DrakTharonKeepScriptName);
 }
-
-#define RegisterDrakTharonKeepCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetDrakTharonKeepAI)
 
 #endif // DRAK_THARON_KEEP_H_

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -59,10 +59,10 @@ enum SSDataTypes
     DATA_TRASH                      = 25,
 };
 
-template <class AI, class T>
-inline AI* GetSerpentshrineCavernAI(T* obj)
+template<typename AI>
+inline AI* GetSerpentshrineCavernAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, SSCScriptName);
+    return GetInstanceAI<AI>(creature, SSCScriptName);
 }
 
 #endif

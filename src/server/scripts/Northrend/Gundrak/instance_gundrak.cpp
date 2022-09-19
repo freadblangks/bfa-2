@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,24 +15,22 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "InstanceScript.h"
+#include "ScriptMgr.h"
 #include "Creature.h"
 #include "EventMap.h"
 #include "GameObject.h"
-#include "GameObjectAI.h"
 #include "gundrak.h"
+#include "InstanceScript.h"
 #include "Map.h"
-#include "ScriptMgr.h"
-#include <sstream>
 
 DoorData const doorData[] =
 {
     { GO_GAL_DARAH_DOOR_1,              DATA_GAL_DARAH,         DOOR_TYPE_PASSAGE },
     { GO_GAL_DARAH_DOOR_2,              DATA_GAL_DARAH,         DOOR_TYPE_PASSAGE },
-    { GO_GAL_DARAH_DOOR_3,              DATA_GAL_DARAH,         DOOR_TYPE_ROOM    },
+    { GO_GAL_DARAH_DOOR_3,              DATA_GAL_DARAH,         DOOR_TYPE_ROOM },
     { GO_ECK_THE_FEROCIOUS_DOOR,        DATA_MOORABI,           DOOR_TYPE_PASSAGE },
     { GO_ECK_THE_FEROCIOUS_DOOR_BEHIND, DATA_ECK_THE_FEROCIOUS, DOOR_TYPE_PASSAGE },
-    { 0,                                0,                      DOOR_TYPE_ROOM    } // END
+    { 0,                                0,                      DOOR_TYPE_ROOM } // END
 };
 
 ObjectData const creatureData[] =
@@ -129,7 +127,7 @@ class instance_gundrak : public InstanceMapScript
                         go->SetGoState(MoorabiStatueState);
                         break;
                     case GO_GAL_DARAH_STATUE:
-                        go->SetGoState(CheckRequiredBosses(DATA_GAL_DARAH) ? GO_STATE_DESTROYED : GO_STATE_READY);
+                        go->SetGoState(CheckRequiredBosses(DATA_GAL_DARAH) ? GO_STATE_ACTIVE_ALTERNATIVE : GO_STATE_READY);
                         break;
                     case GO_DRAKKARI_COLOSSUS_STATUE:
                         go->SetGoState(DrakkariColossusStatueState);
@@ -159,7 +157,7 @@ class instance_gundrak : public InstanceMapScript
                     DwellerGUIDs.erase(unit->GetGUID());
 
                     if (DwellerGUIDs.empty())
-                        unit->SummonCreature(NPC_ECK_THE_FEROCIOUS, EckSpawnPoint, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 300s);
+                        unit->SummonCreature(NPC_ECK_THE_FEROCIOUS, EckSpawnPoint, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 300 * IN_MILLISECONDS);
                 }
             }
 
@@ -204,9 +202,9 @@ class instance_gundrak : public InstanceMapScript
                             return false;
                         break;
                     case DATA_GAL_DARAH:
-                        if (SladRanStatueState != GO_STATE_DESTROYED
-                            || DrakkariColossusStatueState != GO_STATE_DESTROYED
-                            || MoorabiStatueState != GO_STATE_DESTROYED)
+                        if (SladRanStatueState != GO_STATE_ACTIVE_ALTERNATIVE
+                            || DrakkariColossusStatueState != GO_STATE_ACTIVE_ALTERNATIVE
+                            || MoorabiStatueState != GO_STATE_ACTIVE_ALTERNATIVE)
                             return false;
                         break;
                     default:
@@ -311,7 +309,7 @@ class instance_gundrak : public InstanceMapScript
                             break;
                         case DATA_BRIDGE:
                             for (uint32 type = DATA_SLAD_RAN_STATUE; type <= DATA_GAL_DARAH_STATUE; ++type)
-                                ToggleGameObject(type, GO_STATE_DESTROYED);
+                                ToggleGameObject(type, GO_STATE_ACTIVE_ALTERNATIVE);
                             ToggleGameObject(DATA_TRAPDOOR, GO_STATE_READY);
                             ToggleGameObject(DATA_COLLISION, GO_STATE_ACTIVE);
                             SaveToDB();
@@ -349,24 +347,28 @@ class instance_gundrak : public InstanceMapScript
         }
 };
 
-struct go_gundrak_altar : public GameObjectAI
+class go_gundrak_altar : public GameObjectScript
 {
-    go_gundrak_altar(GameObject* go) : GameObjectAI(go), instance(go->GetInstanceScript()) { }
+    public:
+        go_gundrak_altar() : GameObjectScript("go_gundrak_altar") { }
 
-    InstanceScript* instance;
+        bool OnGossipHello(Player* /*player*/, GameObject* go) override
+        {
+            go->AddFlag(GO_FLAG_NOT_SELECTABLE);
+            go->SetGoState(GO_STATE_ACTIVE);
 
-    bool OnGossipHello(Player* /*player*/) override
-    {
-        me->SetFlag(GO_FLAG_NOT_SELECTABLE);
-        me->SetGoState(GO_STATE_ACTIVE);
+            if (InstanceScript* instance = go->GetInstanceScript())
+            {
+                instance->SetData(DATA_STATUE_ACTIVATE, go->GetEntry());
+                return true;
+            }
 
-        instance->SetData(DATA_STATUE_ACTIVATE, me->GetEntry());
-        return true;
-    }
+            return false;
+        }
 };
 
 void AddSC_instance_gundrak()
 {
     new instance_gundrak();
-    RegisterGundrakGameObjectAI(go_gundrak_altar);
+    new go_gundrak_altar();
 }

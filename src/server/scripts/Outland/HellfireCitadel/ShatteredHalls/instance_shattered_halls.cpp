@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -23,14 +23,15 @@ SDCategory: Hellfire Citadel, Shattered Halls
 EndScriptData */
 
 #include "ScriptMgr.h"
+#include "Creature.h"
+#include "CreatureAI.h"
+#include "GameObject.h"
 #include "InstanceScript.h"
 #include "Map.h"
 #include "Player.h"
-#include "ScriptedCreature.h"
 #include "shattered_halls.h"
 #include "SpellAuras.h"
 #include "TemporarySummon.h"
-#include <sstream>
 
 DoorData const doorData[] =
 {
@@ -92,11 +93,35 @@ class instance_shattered_halls : public InstanceMapScript
                     ex->SetDuration(executionTimer);
             }
 
+            void OnGameObjectCreate(GameObject* go) override
+            {
+                switch (go->GetEntry())
+                {
+                    case GO_GRAND_WARLOCK_CHAMBER_DOOR_1:
+                    case GO_GRAND_WARLOCK_CHAMBER_DOOR_2:
+                        AddDoor(go, true);
+                    default:
+                        break;
+                }
+            }
+
+            void OnGameObjectRemove(GameObject* go) override
+            {
+                switch (go->GetEntry())
+                {
+                    case GO_GRAND_WARLOCK_CHAMBER_DOOR_1:
+                    case GO_GRAND_WARLOCK_CHAMBER_DOOR_2:
+                        AddDoor(go, false);
+                    default:
+                        break;
+                }
+            }
+
             void OnCreatureCreate(Creature* creature) override
             {
                 if (!_team)
                 {
-                    Map::PlayerList const& players = instance->GetPlayers();
+                    Map::PlayerList const &players = instance->GetPlayers();
                     if (!players.isEmpty())
                         if (Player* player = players.begin()->GetSource())
                             _team = player->GetTeam();
@@ -278,6 +303,7 @@ class instance_shattered_halls : public InstanceMapScript
             uint32 _team;
         };
 };
+
 
 void AddSC_instance_shattered_halls()
 {

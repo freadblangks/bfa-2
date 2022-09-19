@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -75,12 +75,10 @@ enum MCData
     DATA_RAGNAROS_ADDS  = 0,
 };
 
-template <class AI, class T>
-inline AI* GetMoltenCoreAI(T* obj)
+template<typename AI>
+inline AI* GetMoltenCoreAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, MCScriptName);
+    return GetInstanceAI<AI>(creature, MCScriptName);
 }
-
-#define RegisterMoltenCoreCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetMoltenCoreAI)
 
 #endif

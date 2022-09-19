@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,10 +39,10 @@ enum WCDataTypes
     DATA_NARALEX              = 3679,
 };
 
-template <class AI, class T>
-inline AI* GetWailingCavernsAI(T* obj)
+template<typename AI>
+inline AI* GetWailingCavernsAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, WCScriptName);
+    return GetInstanceAI<AI>(creature, WCScriptName);
 }
 
 #endif

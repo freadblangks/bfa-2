@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -87,12 +87,10 @@ struct ForgeInfo
     uint32 Event;
 };
 
-template <class AI, class T>
-inline AI* GetUtgardeKeepAI(T* obj)
+template<typename AI>
+inline AI* GetUtgardeKeepAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, UKScriptName);
+    return GetInstanceAI<AI>(creature, UKScriptName);
 }
-
-#define RegisterUtgardeKeepCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetUtgardeKeepAI)
 
 #endif // UTGARDE_KEEP_H_

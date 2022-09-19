@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -38,10 +38,7 @@ enum BWLEncounter
     DATA_NEFARIAN               = 7,
 
     // Additional Data
-    DATA_LORD_VICTOR_NEFARIUS   = 8,
-
-    // Doors
-    DATA_GO_CHROMAGGUS_DOOR     = 9
+    DATA_LORD_VICTOR_NEFARIUS   = 8
 };
 
 enum BWLCreatureIds
@@ -64,15 +61,11 @@ enum BWLCreatureIds
 enum BWLGameObjectIds
 {
     GO_BLACK_DRAGON_EGG         = 177807,
-    GO_PORTCULLIS_RAZORGORE     = 176965,
-    GO_PORTCULLIS_VAELASTRASZ   = 179364,
-    GO_PORTCULLIS_BROODLORD     = 179365,
-    GO_PORTCULLIS_THREEDRAGONS  = 179115,
-    GO_PORTCULLIS_CHROMAGGUS    = 179117, //Door after you kill him, not the one for his room
-    GO_CHROMAGGUS_LEVER         = 179148,
-    GO_CHROMAGGUS_DOOR          = 179116,
-    GO_PORTCULLIS_NEFARIAN      = 176966,
-    GO_SUPPRESSION_DEVICE       = 179784
+    GO_PORTCULLIS               = 176965,
+    GO_DRAKE_RIDER_PORTCULLIS   = 175185,
+    GO_ALTERAC_VALLEY_GATE      = 180424,
+    GO_GATE                     = 185483,
+    GO_VACCUUM_EXIT_GATE        = 181125
 };
 
 enum BWLEvents
@@ -89,13 +82,10 @@ enum BWLMisc
     DATA_EGG_EVENT
 };
 
-template <class AI, class T>
-inline AI* GetBlackwingLairAI(T* obj)
+template<typename AI>
+inline AI* GetBlackwingLairAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, BWLScriptName);
+    return GetInstanceAI<AI>(creature, BWLScriptName);
 }
-
-#define RegisterBlackwingLairCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetBlackwingLairAI)
-#define RegisterBlackwingLairGameObjectAI(ai_name) RegisterGameObjectAIWithFactory(ai_name, GetBlackwingLairAI)
 
 #endif

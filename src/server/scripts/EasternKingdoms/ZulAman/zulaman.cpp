@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -23,6 +23,8 @@
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "ScriptedCreature.h"
+#include "ScriptedGossip.h"
+#include "SpellScript.h"
 #include "zulaman.h"
 
 enum Says
@@ -91,7 +93,7 @@ class npc_voljin_zulaman : public CreatureScript
             {
                 me->SetDisplayFromModel(0);
                 if (_instance->GetData(DATA_ZULAMAN_STATE) == NOT_STARTED)
-                    me->SetNpcFlag(UNIT_NPC_FLAG_GOSSIP);
+                    me->AddNpcFlag(UNIT_NPC_FLAG_GOSSIP);
             }
 
             void Reset() override
@@ -99,22 +101,21 @@ class npc_voljin_zulaman : public CreatureScript
                 _gongCount = 0;
             }
 
-            bool OnGossipSelect(Player* player, uint32 menuId, uint32 gossipListId) override
+            void sGossipSelect(Player* player, uint32 menuId, uint32 gossipListId) override
             {
                 if (_instance->GetData(DATA_ZULAMAN_STATE) != NOT_STARTED)
-                    return true;
+                    return;
 
                 if (me->GetCreatureTemplate()->GossipMenuId == menuId && !gossipListId)
                 {
                     _events.Reset();
                     me->SetMountDisplayId(0);
                     me->RemoveNpcFlag(UNIT_NPC_FLAG_GOSSIP);
-                    me->ReplaceAllDynamicFlags(UNIT_DYNFLAG_NONE);
-                    _events.ScheduleEvent(EVENT_INTRO_MOVEPOINT_1, 1s);
+                    me->AddDynamicFlag(UNIT_DYNFLAG_NONE);
+                    _events.ScheduleEvent(EVENT_INTRO_MOVEPOINT_1, 1000);
                     Talk(SAY_INTRO_1, player);
                     me->SetWalk(true);
                 }
-                return false;
             }
 
             void DoAction(int32 action) override
@@ -122,7 +123,7 @@ class npc_voljin_zulaman : public CreatureScript
                 if (action == ACTION_START_ZULAMAN)
                 {
                     if (++_gongCount == 10)
-                        _events.ScheduleEvent(EVENT_START_DOOR_OPENING_1, 500ms);
+                        _events.ScheduleEvent(EVENT_START_DOOR_OPENING_1, 500);
                 }
             }
 
@@ -135,15 +136,15 @@ class npc_voljin_zulaman : public CreatureScript
                     {
                         case EVENT_INTRO_MOVEPOINT_1:
                             me->GetMotionMaster()->MovePoint(POINT_INTRO, VoljinIntroWaypoint[0]);
-                            _events.ScheduleEvent(EVENT_INTRO_MOVEPOINT_2, 1s);
+                            _events.ScheduleEvent(EVENT_INTRO_MOVEPOINT_2, 1000);
                             break;
                         case EVENT_INTRO_MOVEPOINT_2:
                             me->GetMotionMaster()->MovePoint(POINT_STRANGE_GONG, VoljinIntroWaypoint[1]);
-                            _events.ScheduleEvent(EVENT_INTRO_MOVEPOINT_3, 4s);
+                            _events.ScheduleEvent(EVENT_INTRO_MOVEPOINT_3, 4000);
                             break;
                         case EVENT_INTRO_MOVEPOINT_3:
                             Talk(SAY_INTRO_2);
-                            _events.ScheduleEvent(EVENT_BANGING_THE_GONG, 3s);
+                            _events.ScheduleEvent(EVENT_BANGING_THE_GONG, 3000);
                             break;
                         case EVENT_BANGING_THE_GONG:
                             DoCast(me, SPELL_BANGING_THE_GONG);
@@ -153,13 +154,13 @@ class npc_voljin_zulaman : public CreatureScript
                             break;
                         case EVENT_START_DOOR_OPENING_1:
                             me->RemoveAura(SPELL_BANGING_THE_GONG);
-                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_2, 500ms);
+                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_2, 500);
                             break;
                         case EVENT_START_DOOR_OPENING_2:
                             me->SetVirtualItem(0, uint32(0));
                             if (GameObject* strangeGong = ObjectAccessor::GetGameObject(*me, _instance->GetGuidData(DATA_STRANGE_GONG)))
-                                strangeGong->SetFlag(GO_FLAG_NOT_SELECTABLE);
-                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_3, 500ms);
+                                strangeGong->AddFlag(GO_FLAG_NOT_SELECTABLE);
+                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_3, 500);
                             break;
                         case EVENT_START_DOOR_OPENING_3:
                             me->GetMotionMaster()->MovePoint(POINT_START_DOOR_OPENING_1, VoljinIntroWaypoint[2]);
@@ -168,14 +169,14 @@ class npc_voljin_zulaman : public CreatureScript
                             _instance->SetData(DATA_ZULAMAN_STATE, IN_PROGRESS);
                             if (GameObject* masiveGate = ObjectAccessor::GetGameObject(*me, _instance->GetGuidData(DATA_MASSIVE_GATE)))
                                 masiveGate->SetGoState(GO_STATE_ACTIVE);
-                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_5, 3s);
+                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_5, 3000);
                             break;
                         case EVENT_START_DOOR_OPENING_5:
                             Talk(SAY_INTRO_4);
-                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_6, 6s);
+                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_6, 6000);
                             break;
                         case EVENT_START_DOOR_OPENING_6:
-                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_7, 6s);
+                            _events.ScheduleEvent(EVENT_START_DOOR_OPENING_7, 6000);
                             break;
                         case EVENT_START_DOOR_OPENING_7:
                             if (Creature* hexLordTrigger = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(DATA_HEXLORD_TRIGGER)))
@@ -202,7 +203,7 @@ class npc_voljin_zulaman : public CreatureScript
                         me->SetFacingTo(4.747295f);
                         me->GetMotionMaster()->MovePoint(POINT_START_DOOR_OPENING_2, VoljinIntroWaypoint[3]);
                         Talk(SAY_INTRO_3);
-                        _events.ScheduleEvent(EVENT_START_DOOR_OPENING_4, 4500ms);
+                        _events.ScheduleEvent(EVENT_START_DOOR_OPENING_4, 4500);
                         break;
                     default:
                         break;
@@ -221,7 +222,36 @@ class npc_voljin_zulaman : public CreatureScript
         }
 };
 
+// 45226 - Banging the Gong
+class spell_banging_the_gong : public SpellScriptLoader
+{
+    public:
+        spell_banging_the_gong() : SpellScriptLoader("spell_banging_the_gong") { }
+
+        class spell_banging_the_gong_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_banging_the_gong_SpellScript);
+
+            void Activate(SpellEffIndex index)
+            {
+                PreventHitDefaultEffect(index);
+                GetHitGObj()->SendCustomAnim(0);
+            }
+
+            void Register() override
+            {
+                OnEffectHitTarget += SpellEffectFn(spell_banging_the_gong_SpellScript::Activate, EFFECT_1, SPELL_EFFECT_ACTIVATE_OBJECT);
+            }
+        };
+
+        SpellScript* GetSpellScript() const override
+        {
+            return new spell_banging_the_gong_SpellScript();
+        }
+};
+
 void AddSC_zulaman()
 {
     new npc_voljin_zulaman();
+    new spell_banging_the_gong();
 }

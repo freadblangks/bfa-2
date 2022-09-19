@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,8 +22,7 @@
 enum Spells
 {
     SPELL_CURSE_OF_BLOOD        = 24673,
-    SPELL_ILLUSION              = 17773,
-    SPELL_DROP_JOURNAL          = 26096
+    SPELL_ILLUSION              = 17773
 };
 
 enum Events
@@ -52,22 +51,22 @@ public:
         void JustSummoned(Creature* summoned) override
         {
             // Illusions should attack a random target.
-            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
+            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
                 summoned->AI()->AttackStart(target);
 
+            summoned->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_MAGIC, true); // Not sure if this is correct.
             Summons.Summon(summoned);
         }
 
-        void JustEngagedWith(Unit* /*who*/) override
+        void EnterCombat(Unit* /*who*/) override
         {
-            events.ScheduleEvent(EVENT_CURSE_OF_BLOOD, 15s);
-            events.ScheduleEvent(EVENT_ILLUSION, 30s);
+            events.ScheduleEvent(EVENT_CURSE_OF_BLOOD, 15000);
+            events.ScheduleEvent(EVENT_ILLUSION, 30000);
         }
 
         void JustDied(Unit* /*killer*/) override
         {
             Summons.DespawnAll();
-            DoCastSelf(SPELL_DROP_JOURNAL, true);
         }
 
         void UpdateAI(uint32 diff) override
@@ -86,18 +85,18 @@ public:
                 {
                     case EVENT_CURSE_OF_BLOOD:
                         DoCastVictim(SPELL_CURSE_OF_BLOOD);
-                        events.ScheduleEvent(EVENT_CURSE_OF_BLOOD, 30s);
+                        events.ScheduleEvent(EVENT_CURSE_OF_BLOOD, 30000);
                         break;
                     case EVENT_ILLUSION:
                         DoCast(SPELL_ILLUSION);
-                        me->SetUnitFlag(UNIT_FLAG_UNINTERACTIBLE);
+                        me->AddUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
                         me->SetDisplayId(11686);  // Invisible Model
-                        ModifyThreatByPercent(me->GetVictim(), -99);
-                        events.ScheduleEvent(EVENT_SET_VISIBILITY, 3s);
-                        events.ScheduleEvent(EVENT_ILLUSION, 25s);
+                        DoModifyThreatPercent(me->GetVictim(), -99);
+                        events.ScheduleEvent(EVENT_SET_VISIBILITY, 3000);
+                        events.ScheduleEvent(EVENT_ILLUSION, 25000);
                         break;
                     case EVENT_SET_VISIBILITY:
-                        me->RemoveUnitFlag(UNIT_FLAG_UNINTERACTIBLE);
+                        me->RemoveUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
                         me->SetDisplayId(11073);     //Jandice Model
                         break;
                     default:

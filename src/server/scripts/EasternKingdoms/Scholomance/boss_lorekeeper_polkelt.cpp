@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,9 +22,9 @@ Comment:
 Category: Scholomance
 */
 
-#include "scholomance.h"
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
+#include "scholomance.h"
 
 enum Spells
 {
@@ -50,13 +50,13 @@ class boss_lorekeeper_polkelt : public CreatureScript
         {
             boss_lorekeeperpolkeltAI(Creature* creature) : BossAI(creature, DATA_LOREKEEPERPOLKELT) { }
 
-            void JustEngagedWith(Unit* who) override
+            void EnterCombat(Unit* /*who*/) override
             {
-                BossAI::JustEngagedWith(who);
-                events.ScheduleEvent(EVENT_VOLATILEINFECTION, 38s);
-                events.ScheduleEvent(EVENT_DARKPLAGUE, 8s);
-                events.ScheduleEvent(EVENT_CORROSIVEACID, 45s);
-                events.ScheduleEvent(EVENT_NOXIOUSCATALYST, 35s);
+                _EnterCombat();
+                events.ScheduleEvent(EVENT_VOLATILEINFECTION, 38000);
+                events.ScheduleEvent(EVENT_DARKPLAGUE, 8000);
+                events.ScheduleEvent(EVENT_CORROSIVEACID, 45000);
+                events.ScheduleEvent(EVENT_NOXIOUSCATALYST, 35000);
             }
 
             void UpdateAI(uint32 diff) override
@@ -75,19 +75,19 @@ class boss_lorekeeper_polkelt : public CreatureScript
                     {
                         case EVENT_VOLATILEINFECTION:
                             DoCastVictim(SPELL_VOLATILEINFECTION, true);
-                            events.ScheduleEvent(EVENT_VOLATILEINFECTION, 32s);
+                            events.ScheduleEvent(EVENT_VOLATILEINFECTION, 32000);
                             break;
                         case EVENT_DARKPLAGUE:
                             DoCastVictim(SPELL_DARKPLAGUE, true);
-                            events.ScheduleEvent(EVENT_DARKPLAGUE, 8s);
+                            events.ScheduleEvent(EVENT_DARKPLAGUE, 8000);
                             break;
                         case EVENT_CORROSIVEACID:
                             DoCastVictim(SPELL_CORROSIVEACID, true);
-                            events.ScheduleEvent(EVENT_CORROSIVEACID, 25s);
+                            events.ScheduleEvent(EVENT_CORROSIVEACID, 25000);
                             break;
                         case EVENT_NOXIOUSCATALYST:
                             DoCastVictim(SPELL_NOXIOUSCATALYST, true);
-                            events.ScheduleEvent(EVENT_NOXIOUSCATALYST, 38s);
+                            events.ScheduleEvent(EVENT_NOXIOUSCATALYST, 38000);
                             break;
                         default:
                             break;

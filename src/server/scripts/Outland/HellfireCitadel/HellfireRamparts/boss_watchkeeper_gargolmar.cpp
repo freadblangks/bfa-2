@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -75,12 +75,12 @@ class boss_watchkeeper_gargolmar : public CreatureScript
                 _Reset();
             }
 
-            void JustEngagedWith(Unit* who) override
+            void EnterCombat(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
-                events.ScheduleEvent(EVENT_MORTAL_WOUND, 5s);
-                events.ScheduleEvent(EVENT_SURGE, 4s);
-                BossAI::JustEngagedWith(who);
+                events.ScheduleEvent(EVENT_MORTAL_WOUND, 5000);
+                events.ScheduleEvent(EVENT_SURGE, 4000);
+                _EnterCombat();
             }
 
             void MoveInLineOfSight(Unit* who) override
@@ -128,17 +128,17 @@ class boss_watchkeeper_gargolmar : public CreatureScript
                     {
                         case EVENT_MORTAL_WOUND:
                             DoCastVictim(SPELL_MORTAL_WOUND);
-                            events.ScheduleEvent(EVENT_MORTAL_WOUND, 5s, 13s);
+                            events.ScheduleEvent(EVENT_MORTAL_WOUND, urand (5000, 13000));
                             break;
                         case EVENT_SURGE:
                             Talk(SAY_SURGE);
-                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
+                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
                                 DoCast(target, SPELL_SURGE);
-                            events.ScheduleEvent(EVENT_SURGE, 5s, 13s);
+                            events.ScheduleEvent(EVENT_SURGE, urand (5000, 13000));
                             break;
                         case EVENT_RETALIATION:
                             DoCast(me, SPELL_RETALIATION);
-                            events.ScheduleEvent(EVENT_RETALIATION, 30s);
+                            events.ScheduleEvent(EVENT_RETALIATION, 30000);
                             break;
                         default:
                             break;
@@ -149,7 +149,7 @@ class boss_watchkeeper_gargolmar : public CreatureScript
                 {
                     if (HealthBelowPct(20))
                     {
-                        events.ScheduleEvent(EVENT_RETALIATION, 1s);
+                        events.ScheduleEvent(EVENT_RETALIATION, 1000);
                         retaliation = true;
                     }
                 }

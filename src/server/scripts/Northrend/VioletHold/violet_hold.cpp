@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,14 +16,14 @@
  */
 
 #include "ScriptMgr.h"
+#include "Containers.h"
 #include "GameObject.h"
 #include "InstanceScript.h"
 #include "Map.h"
 #include "MotionMaster.h"
 #include "Player.h"
-#include "GameObjectAI.h"
-#include "ScriptedEscortAI.h"
 #include "ScriptedGossip.h"
+#include "ScriptedEscortAI.h"
 #include "SpellAuraEffects.h"
 #include "SpellScript.h"
 #include "TemporarySummon.h"
@@ -119,9 +119,7 @@ enum AzureSaboteurSpells
 
 enum TrashDoorSpell
 {
-    SPELL_DESTROY_DOOR_SEAL             = 58040,   // > 31326 Corrupt Medivh
-    SPELL_PRISON_DOOR_SEAL_WEAKEN       = 58041,   // NYI, no effect, maybe > 32613 Medivh's Shield -5%
-    SPELL_DOOR_BROKEN                   = 58043    // NYI, no effect, maybe > 31327 Medivh Dies!
+    SPELL_DESTROY_DOOR_SEAL     = 58040
 };
 
 enum DefenseSystemSpells
@@ -133,54 +131,12 @@ enum DefenseSystemSpells
 
 enum MiscSpells
 {
-    SPELL_CRYSTAL_ACTIVATION            = 57804,
+    SPELL_PORTAL_PERIODIC           = 58008,
+    SPELL_PORTAL_CHANNEL            = 58012,
+    SPELL_CRYSTAL_ACTIVATION        = 57804,
 
-    SPELL_ATTACK_VIOLET_HOLD_GUARD      = 57936,   // NYI, no effect
-
-    // Turned out almost all spells from BM were copied to create Violet Hold. Not only serverside spells and
-    // not only their effects but also attributes and icons. The scripts were also copied, possibly unchanged
-    SPELL_PORTAL_1_READY                = 57995,   // NYI, effect copied from 'Time Rift 1 Ready'
-    SPELL_PORTAL_2_READY                = 57996,   // NYI, effect copied from 'Time Rift 2 Ready'
-    SPELL_PORTAL_3_READY                = 57997,   // NYI, effect copied from 'Time Rift 3 Ready'
-    SPELL_PORTAL_4_READY                = 57998,   // NYI, effect copied from 'Time Rift 4 Ready'
-    SPELL_PORTAL_5_READY                = 57999,   // NYI, effect copied from 'Time Rift 1 Ready', only 4 portals in BM
-
-    SPELL_SUMMON_PORTAL                 = 58002,   // NYI, effect copied from 'Summon Time Rift'
-    SPELL_SUMMON_PORTAL_EFFECT_1        = 58003,   // NYI, no effect, > Summon Time Rift Effect
-    SPELL_SUMMON_PORTAL_EFFECT_2        = 58004,   // NYI, no effect, > Summon Time Rift Effect
-    SPELL_SUMMON_PORTAL_EFFECT_3        = 58005,   // NYI, no effect, > Summon Time Rift Effect
-    SPELL_SUMMON_PORTAL_EFFECT_4        = 58006,   // NYI, no effect, > Summon Time Rift Effect
-    SPELL_SUMMON_PORTAL_EFFECT_5        = 58007,   // NYI, no effect, > Summon Time Rift Effect
-    SPELL_PORTAL_PERIODIC               = 58008,   // > Time Rift Periodic
-    SPELL_PORTAL_CHANNEL_TRIGGER        = 58011,   // NYI, effect copied from 'Time Rift Channel Trigger'
-    SPELL_PORTAL_CHANNEL                = 58012,   // > Time Rift Channel
-    SPELL_CLOSE_PORTAL_TRIGGER          = 58014,   // NYI, effect copied from 'Close Time Rift Trigger'
-    SPELL_CLOSE_PORTAL_EFFECT           = 58018,   // NYI, effect copied from 'Close Time Rift Effect'
-    SPELL_PORTAL_READY_PRIMER           = 58019,   // NYI, effect copied from 'Time Rift Ready Primer'
-
-    SPELL_SUMMON_PORTAL_GUARDIAN        = 58028,   // NYI, summons 30660
-    SPELL_SUMMON_PORTAL_GUARDIAN_2      = 58029,   // NYI, summons 30892
-    SPELL_SUMMON_PORTAL_KEEPER          = 58030,   // NYI, summons 30695
-    SPELL_SUMMON_PORTAL_KEEPER_2        = 58031,   // NYI, summons 30893
-    SPELL_SUMMON_AZURE_BINDER           = 58034,   // NYI, summons 30663
-    SPELL_SUMMON_AZURE_BINDER_2         = 58086,   // NYI, summons 30918
-    SPELL_SUMMON_AZURE_INVADER          = 58087,   // NYI, summons 30661
-    SPELL_SUMMON_AZURE_INVADER_2        = 58088,   // NYI, summons 30961
-    SPELL_SUMMON_AZURE_SPELLBREAKER     = 58089,   // NYI, summons 30662
-    SPELL_SUMMON_AZURE_SPELLBREAKER_2   = 58090,   // NYI, summons 30962
-    SPELL_SUMMON_AZURE_MAGE_SLAYER      = 58091,   // NYI, summons 30664
-    SPELL_SUMMON_AZURE_MAGE_SLAYER_2    = 58092,   // NYI, summons 30963
-    SPELL_SUMMON_VETERAN_MAGE_HUNTER    = 58093,   // NYI, summons 30665
-
-    SPELL_SUMMON_AZURE_CAPTAIN          = 60048,   // NYI, summons 30666
-    SPELL_SUMMON_AZURE_STALKER          = 60086,   // NYI, summons 32191
-    SPELL_SUMMON_AZURE_RAIDER           = 60049,   // NYI, summons 30668
-    SPELL_SUMMON_AZURE_RAIDER_2         = 60092,   // NYI, summons 30668
-    SPELL_SUMMON_AZURE_SORCEROR         = 60050,   // NYI, summons 30667
-    SPELL_SUMMON_AZURE_SORCEROR_2       = 60093,   // NYI, summons 30667
-
-    SPELL_TELEPORT_PLAYER               = 62138,
-    SPELL_TELEPORT_PLAYER_EFFECT        = 62139
+    SPELL_TELEPORT_PLAYER           = 62138,
+    SPELL_TELEPORT_PLAYER_EFFECT    = 62139
 };
 
 enum MiscData
@@ -280,7 +236,7 @@ Position const FifthPortalWPs[] =
     //{1827.100342f, 801.605957f, 44.363358f}
 };
 
-Position const SixthPortalWPs[] =
+Position const SixthPoralWPs[] =
 {
     {1888.861084f, 805.074768f, 38.375790f},
     {1869.793823f, 804.135804f, 38.647018f},
@@ -355,289 +311,317 @@ Position const SinclariPositions[] = // sniff
 
 Position const GuardsMovePosition = { 1802.099f, 803.7724f, 44.36466f, 0.0f }; // sniff
 
-struct npc_sinclari_vh : public ScriptedAI
+class npc_sinclari_vh : public CreatureScript
 {
-    npc_sinclari_vh(Creature* creature) : ScriptedAI(creature), _summons(creature)
-    {
-        _instance = creature->GetInstanceScript();
-    }
+    public:
+        npc_sinclari_vh() : CreatureScript("npc_sinclari_vh") { }
 
-    void Reset() override
-    {
-        _summons.DespawnAll();
-        for (uint8 i = 0; i < PortalIntroCount; ++i)
-            if (Creature* summon = me->SummonCreature(NPC_TELEPORTATION_PORTAL_INTRO, PortalIntroPositions[i], TEMPSUMMON_MANUAL_DESPAWN))
-                summon->AI()->SetData(DATA_PORTAL_LOCATION, i);
-
-        me->SetNpcFlag(UNIT_NPC_FLAG_GOSSIP);
-
-        std::list<Creature*> guardList;
-        me->GetCreatureListWithEntryInGrid(guardList, NPC_VIOLET_HOLD_GUARD, 100.0f);
-        for (Creature* guard : guardList)
+        bool OnGossipHello(Player* player, Creature* creature) override
         {
-            guard->Respawn(true);
-            guard->SetVisible(true);
-            guard->SetReactState(REACT_AGGRESSIVE);
-            guard->AI()->EnterEvadeMode();
-        }
-    }
-
-    bool OnGossipHello(Player* player) override
-    {
-        // override default gossip
-        switch (_instance->GetData(DATA_MAIN_EVENT_STATE))
-        {
-            case IN_PROGRESS:
-                player->PrepareGossipMenu(me, GOSSIP_MENU_SEND_ME_IN, true);
-                player->SendPreparedGossip(me);
-                return true;
-            case DONE:
-                return true; // NYI
-            case NOT_STARTED:
-            case FAIL:
-            default:
-                break;
-        }
-
-        // load default gossip
-        return false;
-    }
-
-    bool OnGossipSelect(Player* player, uint32 menuId, uint32 gossipListId) override
-    {
-        if (menuId == GOSSIP_MENU_START_ENCOUNTER && gossipListId == 0)
-        {
-            me->RemoveNpcFlag(UNIT_NPC_FLAG_GOSSIP);
-            _instance->SetData(DATA_MAIN_EVENT_STATE, SPECIAL);
-            ScheduleIntro();
-            player->PlayerTalkClass->SendCloseGossip();
-        }
-        else if (menuId == GOSSIP_MENU_SEND_ME_IN && gossipListId == 0)
-        {
-            me->CastSpell(player, SPELL_TELEPORT_PLAYER, true);
-            player->PlayerTalkClass->SendCloseGossip();
-        }
-        return false;
-    }
-
-    void DoAction(int32 actionId) override
-    {
-        if (actionId == ACTION_SINCLARI_OUTRO)
-            ScheduleOutro();
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        _scheduler.Update(diff);
-
-        if (!UpdateVictim())
-            return;
-
-        DoMeleeAttackIfReady();
-    }
-
-    void ScheduleIntro()
-    {
-        _scheduler.Schedule(Seconds(1), [this](TaskContext task)
-        {
-            switch (task.GetRepeatCounter())
+            // override default gossip
+            if (InstanceScript* instance = creature->GetInstanceScript())
             {
-                case 0:
-                    me->SetWalk(true);
-                    me->GetMotionMaster()->MovePoint(0, SinclariPositions[0]);
-                    task.Repeat(Seconds(1));
-                    break;
-                case 1:
-                    me->HandleEmoteCommand(EMOTE_ONESHOT_USE_STANDING);
-                    me->GetMap()->SummonCreature(NPC_DEFENSE_SYSTEM, DefenseSystemLocation);
-                    task.Repeat(Seconds(3));
-                    break;
-                case 2:
-                    me->SetFacingTo(SinclariPositions[0].GetOrientation());
-                    Talk(SAY_SINCLARI_INTRO_1);
-
-                    task.Schedule(Seconds(1), [this](TaskContext /*task*/)
-                    {
-                        std::list<Creature*> guardList;
-                        me->GetCreatureListWithEntryInGrid(guardList, NPC_VIOLET_HOLD_GUARD, 100.0f);
-                        for (Creature* guard : guardList)
-                        {
-                            if (!guard->IsAlive())
-                                continue;
-                            guard->SetReactState(REACT_PASSIVE);
-                            guard->SetWalk(false);
-                            guard->GetMotionMaster()->MovePoint(0, GuardsMovePosition);
-                        }
-                    });
-
-                    task.Repeat(Seconds(2));
-                    break;
-                case 3:
-                    me->GetMotionMaster()->MovePoint(0, SinclariPositions[1]);
-                    _summons.DespawnAll();
-                    task.Repeat(Seconds(5));
-                    break;
-                case 4:
-                    me->SetFacingTo(SinclariPositions[1].GetOrientation());
-
-                    task.Schedule(Seconds(1), [this](TaskContext /*task*/)
-                    {
-                        std::list<Creature*> guardList;
-                        me->GetCreatureListWithEntryInGrid(guardList, NPC_VIOLET_HOLD_GUARD, 100.0f);
-                        for (Creature* guard : guardList)
-                            guard->SetVisible(false);
-                    });
-
-                    task.Repeat(Seconds(6));
-                    break;
-                case 5:
-                    Talk(SAY_SINCLARI_INTRO_2);
-                    task.Repeat(Seconds(4));
-                    break;
-                case 6:
-                    me->HandleEmoteCommand(EMOTE_ONESHOT_TALK_NO_SHEATHE);
-                    task.Repeat(Seconds(1));
-                    break;
-                case 7:
-                    if (GameObject* mainDoor = _instance->GetGameObject(DATA_MAIN_DOOR))
-                    {
-                        mainDoor->SetGoState(GO_STATE_READY);
-                        mainDoor->SetFlag(GO_FLAG_LOCKED);
-                    }
-                    task.Repeat(Seconds(5));
-                    break;
-                case 8:
-                    _instance->SetData(DATA_MAIN_EVENT_STATE, IN_PROGRESS);
-                    task.Repeat(Seconds(1));
-                    break;
-                case 9:
-                    // We should teleport inside if event is in progress with GOSSIP_MENU_SEND_ME_IN
-                    me->SetNpcFlag(UNIT_NPC_FLAG_GOSSIP);
-                    break;
-                default:
-                    break;
+                switch (instance->GetData(DATA_MAIN_EVENT_STATE))
+                {
+                    case IN_PROGRESS:
+                        player->PrepareGossipMenu(creature, GOSSIP_MENU_SEND_ME_IN, true);
+                        player->SendPreparedGossip(creature);
+                        return true;
+                    case DONE:
+                        return true; // NYI
+                    case NOT_STARTED:
+                    case FAIL:
+                    default:
+                        break;
+                }
             }
-        });
-    }
 
-    void ScheduleOutro()
-    {
-        _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+            // load default gossip
+            return false;
+        }
+
+        struct npc_sinclariAI : public ScriptedAI
         {
-            Talk(SAY_SINCLARI_OUTRO);
-            me->GetMotionMaster()->MovePoint(0, SinclariPositions[3]);
-
-            task.Schedule(Seconds(10), [this](TaskContext /*task*/)
+            npc_sinclariAI(Creature* creature) : ScriptedAI(creature), _summons(creature)
             {
-                me->SetNpcFlag(UNIT_NPC_FLAG_GOSSIP);
-            });
-        });
-    }
+                _instance = creature->GetInstanceScript();
+            }
 
-    void JustSummoned(Creature* summon) override
-    {
-        ScriptedAI::JustSummoned(summon);
-        _summons.Summon(summon);
-    }
+            void Reset() override
+            {
+                _summons.DespawnAll();
+                for (uint8 i = 0; i < PortalIntroCount; ++i)
+                    if (Creature* summon = me->SummonCreature(NPC_TELEPORTATION_PORTAL_INTRO, PortalIntroPositions[i], TEMPSUMMON_MANUAL_DESPAWN))
+                        summon->AI()->SetData(DATA_PORTAL_LOCATION, i);
 
-    void SummonedCreatureDespawn(Creature* summon) override
-    {
-        _summons.Despawn(summon);
-        ScriptedAI::SummonedCreatureDespawn(summon);
-    }
+                me->SetVisible(true);
+                me->AddNpcFlag(UNIT_NPC_FLAG_GOSSIP);
 
-private:
-    InstanceScript* _instance;
-    TaskScheduler _scheduler;
+                std::list<Creature*> guardList;
+                me->GetCreatureListWithEntryInGrid(guardList, NPC_VIOLET_HOLD_GUARD, 100.0f);
+                for (Creature* guard : guardList)
+                {
+                    guard->Respawn(true);
+                    guard->SetVisible(true);
+                    guard->SetReactState(REACT_AGGRESSIVE);
+                    guard->AI()->EnterEvadeMode();
+                }
+            }
 
-    SummonList _summons;
+            void sGossipSelect(Player* player, uint32 menuId, uint32 gossipListId) override
+            {
+                if (menuId == GOSSIP_MENU_START_ENCOUNTER && gossipListId == 0)
+                {
+                    me->RemoveNpcFlag(UNIT_NPC_FLAG_GOSSIP);
+                    _instance->SetData(DATA_MAIN_EVENT_STATE, SPECIAL);
+                    ScheduleIntro();
+                    player->PlayerTalkClass->SendCloseGossip();
+                }
+                else if (menuId == GOSSIP_MENU_SEND_ME_IN && gossipListId == 0)
+                {
+                    me->CastSpell(player, SPELL_TELEPORT_PLAYER, true);
+                    player->PlayerTalkClass->SendCloseGossip();
+                }
+            }
+
+            void DoAction(int32 actionId) override
+            {
+                if (actionId == ACTION_SINCLARI_OUTRO)
+                {
+                    me->SetVisible(true);
+                    ScheduleOutro();
+                }
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                _scheduler.Update(diff);
+
+                if (!UpdateVictim())
+                    return;
+
+                DoMeleeAttackIfReady();
+            }
+
+            void ScheduleIntro()
+            {
+                _scheduler.Schedule(Seconds(1), [this](TaskContext task)
+                {
+                    switch (task.GetRepeatCounter())
+                    {
+                        case 0:
+                            me->SetWalk(true);
+                            me->GetMotionMaster()->MovePoint(0, SinclariPositions[0]);
+                            task.Repeat(Seconds(1));
+                            break;
+                        case 1:
+                            me->HandleEmoteCommand(EMOTE_ONESHOT_USE_STANDING);
+                            me->GetMap()->SummonCreature(NPC_DEFENSE_SYSTEM, DefenseSystemLocation);
+                            task.Repeat(Seconds(3));
+                            break;
+                        case 2:
+                            me->SetFacingTo(SinclariPositions[0].GetOrientation());
+                            Talk(SAY_SINCLARI_INTRO_1);
+
+                            task.Schedule(Seconds(1), [this](TaskContext /*task*/)
+                            {
+                                std::list<Creature*> guardList;
+                                me->GetCreatureListWithEntryInGrid(guardList, NPC_VIOLET_HOLD_GUARD, 100.0f);
+                                for (Creature* guard : guardList)
+                                {
+                                    if (!guard->IsAlive())
+                                        continue;
+                                    guard->SetReactState(REACT_PASSIVE);
+                                    guard->SetWalk(false);
+                                    guard->GetMotionMaster()->MovePoint(0, GuardsMovePosition);
+                                }
+                            });
+
+                            task.Repeat(Seconds(2));
+                            break;
+                        case 3:
+                            me->GetMotionMaster()->MovePoint(0, SinclariPositions[1]);
+                            _summons.DespawnAll();
+                            task.Repeat(Seconds(5));
+                            break;
+                        case 4:
+                            me->SetFacingTo(SinclariPositions[1].GetOrientation());
+
+                            task.Schedule(Seconds(1), [this](TaskContext /*task*/)
+                            {
+                                std::list<Creature*> guardList;
+                                me->GetCreatureListWithEntryInGrid(guardList, NPC_VIOLET_HOLD_GUARD, 100.0f);
+                                for (Creature* guard : guardList)
+                                    guard->SetVisible(false);
+                            });
+
+                            task.Repeat(Seconds(6));
+                            break;
+                        case 5:
+                            Talk(SAY_SINCLARI_INTRO_2);
+                            task.Repeat(Seconds(4));
+                            break;
+                        case 6:
+                            me->HandleEmoteCommand(EMOTE_ONESHOT_TALK_NO_SHEATHE);
+                            task.Repeat(Seconds(1));
+                            break;
+                        case 7:
+                            if (GameObject* mainDoor = _instance->GetGameObject(DATA_MAIN_DOOR))
+                            {
+                                mainDoor->SetGoState(GO_STATE_READY);
+                                mainDoor->AddFlag(GO_FLAG_LOCKED);
+                            }
+                            task.Repeat(Seconds(5));
+                            break;
+                        case 8:
+                            me->SetVisible(false);
+                            task.Repeat(Seconds(1));
+                            break;
+                        case 9:
+                            _instance->SetData(DATA_MAIN_EVENT_STATE, IN_PROGRESS);
+                            // [1] GUID: Full: 0xF1300077C202E6DD Type: Creature Entry: 30658 Low: 190173
+                            break;
+                        default:
+                            break;
+                    }
+                });
+            }
+
+            void ScheduleOutro()
+            {
+                _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+                {
+                    Talk(SAY_SINCLARI_OUTRO);
+                    me->GetMotionMaster()->MovePoint(0, SinclariPositions[3]);
+
+                    task.Schedule(Seconds(10), [this](TaskContext /*task*/)
+                    {
+                        me->AddNpcFlag(UNIT_NPC_FLAG_GOSSIP);
+                    });
+                });
+            }
+
+            void JustSummoned(Creature* summon) override
+            {
+                ScriptedAI::JustSummoned(summon);
+                _summons.Summon(summon);
+            }
+
+            void SummonedCreatureDespawn(Creature* summon) override
+            {
+                _summons.Despawn(summon);
+                ScriptedAI::SummonedCreatureDespawn(summon);
+            }
+
+        private:
+            InstanceScript* _instance;
+            TaskScheduler _scheduler;
+
+            SummonList _summons;
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_sinclariAI>(creature);
+        }
 };
 
-struct npc_azure_saboteur : public ScriptedAI
+class npc_azure_saboteur : public CreatureScript
 {
-    npc_azure_saboteur(Creature* creature) : ScriptedAI(creature)
-    {
-        _instance = creature->GetInstanceScript();
+    public:
+        npc_azure_saboteur() : CreatureScript("npc_azure_saboteur") { }
 
-        if (_instance->GetData(DATA_WAVE_COUNT) == 6)
-            _bossId = _instance->GetData(DATA_1ST_BOSS);
-        else
-            _bossId = _instance->GetData(DATA_2ND_BOSS);
-    }
-
-    template <size_t N>
-    void StartSmoothPath(Position const (&path)[N])
-    {
-        me->GetMotionMaster()->MoveSmoothPath(POINT_INTRO, &path[0], N, false);
-    }
-
-    void StartMovement()
-    {
-        switch (_bossId)
+        struct npc_azure_saboteurAI : public ScriptedAI
         {
-            case DATA_MORAGG:
-                StartSmoothPath(SaboteurMoraggPath);
-                break;
-            case DATA_EREKEM:
-                StartSmoothPath(SaboteurErekemPath);
-                break;
-            case DATA_ICHORON:
-                StartSmoothPath(SaboteurIchoronPath);
-                break;
-            case DATA_LAVANTHOR:
-                StartSmoothPath(SaboteurLavanthorPath);
-                break;
-            case DATA_XEVOZZ:
-                StartSmoothPath(SaboteurXevozzPath);
-                break;
-            case DATA_ZURAMAT:
-                StartSmoothPath(SaboteurZuramatPath);
-                break;
-        }
-    }
-
-    void Reset() override
-    {
-        _scheduler.CancelAll();
-        _scheduler.Schedule(Seconds(2), [this](TaskContext /*task*/)
-        {
-            StartMovement();
-        });
-    }
-
-    void MovementInform(uint32 type, uint32 pointId) override
-    {
-        if (type == EFFECT_MOTION_TYPE && pointId == POINT_INTRO)
-        {
-            _scheduler.Schedule(0s, [this](TaskContext task)
+            npc_azure_saboteurAI(Creature* creature) : ScriptedAI(creature)
             {
-                me->CastSpell(me, SPELL_SHIELD_DISRUPTION, false);
+                _instance = creature->GetInstanceScript();
 
-                if (task.GetRepeatCounter() < 2)
-                    task.Repeat(Seconds(1));
+                if (_instance->GetData(DATA_WAVE_COUNT) == 6)
+                    _bossId = _instance->GetData(DATA_1ST_BOSS);
                 else
+                    _bossId = _instance->GetData(DATA_2ND_BOSS);
+            }
+
+            template<size_t N>
+            void StartSmoothPath(Position const (&path)[N])
+            {
+                me->GetMotionMaster()->MoveSmoothPath(POINT_INTRO, &path[0], N, false);
+            }
+
+            void StartMovement()
+            {
+                switch (_bossId)
                 {
-                    task.Schedule(Seconds(2), [this](TaskContext /*task*/)
+                    case DATA_MORAGG:
+                        StartSmoothPath(SaboteurMoraggPath);
+                        break;
+                    case DATA_EREKEM:
+                        StartSmoothPath(SaboteurErekemPath);
+                        break;
+                    case DATA_ICHORON:
+                        StartSmoothPath(SaboteurIchoronPath);
+                        break;
+                    case DATA_LAVANTHOR:
+                        StartSmoothPath(SaboteurLavanthorPath);
+                        break;
+                    case DATA_XEVOZZ:
+                        StartSmoothPath(SaboteurXevozzPath);
+                        break;
+                    case DATA_ZURAMAT:
+                        StartSmoothPath(SaboteurZuramatPath);
+                        break;
+                }
+            }
+
+            void Reset() override
+            {
+                _scheduler.CancelAll();
+                _scheduler.Schedule(Seconds(2), [this](TaskContext /*task*/)
+                {
+                    StartMovement();
+                });
+            }
+
+            void MovementInform(uint32 type, uint32 pointId) override
+            {
+                if (type == EFFECT_MOTION_TYPE && pointId == POINT_INTRO)
+                {
+                    _scheduler.Schedule(Seconds(0), [this](TaskContext task)
                     {
-                        _instance->SetData(DATA_START_BOSS_ENCOUNTER, 1);
-                        me->CastSpell(me, SPELL_TELEPORT_VISUAL, false);
-                        me->DespawnOrUnsummon(1s);
+                        me->CastSpell(me, SPELL_SHIELD_DISRUPTION, false);
+
+                        if (task.GetRepeatCounter() < 2)
+                            task.Repeat(Seconds(1));
+                        else
+                        {
+                            task.Schedule(Seconds(2), [this](TaskContext /*task*/)
+                            {
+                                _instance->SetData(DATA_START_BOSS_ENCOUNTER, 1);
+                                me->CastSpell(me, SPELL_TELEPORT_VISUAL, false);
+                                me->DespawnOrUnsummon(1000);
+                            });
+                        }
                     });
                 }
-            });
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                _scheduler.Update(diff);
+            }
+
+        private:
+            InstanceScript* _instance;
+            TaskScheduler _scheduler;
+
+            uint32 _bossId;
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_azure_saboteurAI>(creature);
         }
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        _scheduler.Update(diff);
-    }
-
-private:
-    InstanceScript* _instance;
-    TaskScheduler _scheduler;
-
-    uint32 _bossId;
 };
 
 struct npc_violet_hold_teleportation_portal_commonAI : public ScriptedAI
@@ -662,7 +646,7 @@ struct npc_violet_hold_teleportation_portal_commonAI : public ScriptedAI
 
     void MoveInLineOfSight(Unit* /*who*/) override { }
 
-    void JustEngagedWith(Unit* /*who*/) override { }
+    void EnterCombat(Unit* /*who*/) override { }
 
     void JustSummoned(Creature* summon) override
     {
@@ -689,129 +673,158 @@ protected:
     uint8 _portalLocation;
 };
 
-struct npc_violet_hold_teleportation_portal : public npc_violet_hold_teleportation_portal_commonAI
+class npc_violet_hold_teleportation_portal : public CreatureScript
 {
-    npc_violet_hold_teleportation_portal(Creature* creature) : npc_violet_hold_teleportation_portal_commonAI(creature)
-    {
-    }
+    public:
+        npc_violet_hold_teleportation_portal() : CreatureScript("npc_violet_hold_teleportation_portal") { }
 
-    void InitializeAI() override
-    {
-        npc_violet_hold_teleportation_portal_commonAI::InitializeAI();
-        me->CastSpell(me, SPELL_PORTAL_PERIODIC, true);
-    }
-
-    void SetData(uint32 type, uint32 data) override
-    {
-        npc_violet_hold_teleportation_portal_commonAI::SetData(type, data);
-
-        if (type == DATA_PORTAL_PERIODIC_TICK)
+        struct npc_violet_hold_teleportation_portalAI : public npc_violet_hold_teleportation_portal_commonAI
         {
-            if (data == 1)
+            npc_violet_hold_teleportation_portalAI(Creature* creature) : npc_violet_hold_teleportation_portal_commonAI(creature)
             {
-                uint32 entry = RAND(NPC_PORTAL_GUARDIAN, NPC_PORTAL_KEEPER);
-                if (Creature* portalKeeper = DoSummon(entry, me, 2.0f, 0s, TEMPSUMMON_DEAD_DESPAWN))
-                    me->CastSpell(portalKeeper, SPELL_PORTAL_CHANNEL, false);
+            }
 
-                if (Creature* sinclariTrigger = _instance->GetCreature(DATA_SINCLARI_TRIGGER))
+            void InitializeAI() override
+            {
+                npc_violet_hold_teleportation_portal_commonAI::InitializeAI();
+                me->CastSpell(me, SPELL_PORTAL_PERIODIC, true);
+            }
+
+            void SetData(uint32 type, uint32 data) override
+            {
+                npc_violet_hold_teleportation_portal_commonAI::SetData(type, data);
+
+                if (type == DATA_PORTAL_PERIODIC_TICK)
                 {
-                    if (entry == NPC_PORTAL_GUARDIAN)
-                        sinclariTrigger->AI()->Talk(SAY_SINCLARI_PORTAL_GUARDIAN);
-                    else if (entry == NPC_PORTAL_KEEPER)
-                        sinclariTrigger->AI()->Talk(SAY_SINCLARI_PORTAL_KEEPER);
+                    if (data == 1)
+                    {
+                        uint32 entry = RAND(NPC_PORTAL_GUARDIAN, NPC_PORTAL_KEEPER);
+                        if (Creature* portalKeeper = DoSummon(entry, me, 2.0f, 0, TEMPSUMMON_DEAD_DESPAWN))
+                            me->CastSpell(portalKeeper, SPELL_PORTAL_CHANNEL, false);
+
+                        if (Creature* sinclariTrigger = _instance->GetCreature(DATA_SINCLARI_TRIGGER))
+                        {
+                            if (entry == NPC_PORTAL_GUARDIAN)
+                                sinclariTrigger->AI()->Talk(SAY_SINCLARI_PORTAL_GUARDIAN);
+                            else if (entry == NPC_PORTAL_KEEPER)
+                                sinclariTrigger->AI()->Talk(SAY_SINCLARI_PORTAL_KEEPER);
+                        }
+                    }
+                    else
+                    {
+                        uint8 k = _instance->GetData(DATA_WAVE_COUNT) < 12 ? 3 : 4;
+                        while (k--)
+                        {
+                            uint32 entry = RAND(NPC_AZURE_INVADER_1, NPC_AZURE_INVADER_2, NPC_AZURE_SPELLBREAKER_1, NPC_AZURE_SPELLBREAKER_2, NPC_AZURE_MAGE_SLAYER_1, NPC_AZURE_MAGE_SLAYER_2, NPC_AZURE_BINDER_1, NPC_AZURE_BINDER_2);
+                            DoSummon(entry, me, 2.0f, 20000, TEMPSUMMON_DEAD_DESPAWN);
+                        }
+                    }
                 }
             }
-            else
+
+            void SummonedCreatureDies(Creature* summon, Unit* killer) override
             {
-                uint8 k = _instance->GetData(DATA_WAVE_COUNT) < 12 ? 3 : 4;
-                while (k--)
+                npc_violet_hold_teleportation_portal_commonAI::SummonedCreatureDies(summon, killer);
+
+                if (summon->GetEntry() == NPC_PORTAL_GUARDIAN || summon->GetEntry() == NPC_PORTAL_KEEPER)
                 {
-                    uint32 entry = RAND(NPC_AZURE_INVADER_1, NPC_AZURE_INVADER_2, NPC_AZURE_SPELLBREAKER_1, NPC_AZURE_SPELLBREAKER_2, NPC_AZURE_MAGE_SLAYER_1, NPC_AZURE_MAGE_SLAYER_2, NPC_AZURE_BINDER_1, NPC_AZURE_BINDER_2);
-                    DoSummon(entry, me, 2.0f, 20s, TEMPSUMMON_DEAD_DESPAWN);
+                    _instance->SetData(DATA_WAVE_COUNT, _instance->GetData(DATA_WAVE_COUNT) + 1);
+                    me->DespawnOrUnsummon();
                 }
             }
-        }
-    }
+        };
 
-    void SummonedCreatureDies(Creature* summon, Unit* killer) override
-    {
-        npc_violet_hold_teleportation_portal_commonAI::SummonedCreatureDies(summon, killer);
-
-        if (summon->GetEntry() == NPC_PORTAL_GUARDIAN || summon->GetEntry() == NPC_PORTAL_KEEPER)
+        CreatureAI* GetAI(Creature* creature) const override
         {
-            _instance->SetData(DATA_WAVE_COUNT, _instance->GetData(DATA_WAVE_COUNT) + 1);
-            me->DespawnOrUnsummon();
+            return GetVioletHoldAI<npc_violet_hold_teleportation_portalAI>(creature);
         }
-    }
 };
 
-struct npc_violet_hold_teleportation_portal_elite : public npc_violet_hold_teleportation_portal_commonAI
+class npc_violet_hold_teleportation_portal_elite : public CreatureScript
 {
-    npc_violet_hold_teleportation_portal_elite(Creature* creature) : npc_violet_hold_teleportation_portal_commonAI(creature)
-    {
-    }
+    public:
+        npc_violet_hold_teleportation_portal_elite() : CreatureScript("npc_violet_hold_teleportation_portal_elite") { }
 
-    void ScheduleTasks() override
-    {
-        _scheduler.Schedule(Seconds(15), [this](TaskContext task)
+        struct npc_violet_hold_teleportation_portal_eliteAI : public npc_violet_hold_teleportation_portal_commonAI
         {
-            uint8 k = _instance->GetData(DATA_WAVE_COUNT) < 12 ? 3 : 4;
-            while (k--)
+            npc_violet_hold_teleportation_portal_eliteAI(Creature* creature) : npc_violet_hold_teleportation_portal_commonAI(creature)
             {
-                uint32 entry = RAND(NPC_AZURE_CAPTAIN_1, NPC_AZURE_RAIDER_1, NPC_AZURE_STALKER_1, NPC_AZURE_SORCEROR_1);
-                DoSummon(entry, me, 2.0f, 20s, TEMPSUMMON_DEAD_DESPAWN);
             }
 
-            if (Creature* sinclariTrigger = _instance->GetCreature(DATA_SINCLARI_TRIGGER))
-                sinclariTrigger->AI()->Talk(SAY_SINCLARI_ELITE_SQUAD);
-
-            task.Schedule(Seconds(1), [this](TaskContext /*task*/)
+            void ScheduleTasks() override
             {
-                me->SetVisible(false);
-            });
-        });
-    }
+                _scheduler.Schedule(Seconds(15), [this](TaskContext task)
+                {
+                    uint8 k = _instance->GetData(DATA_WAVE_COUNT) < 12 ? 3 : 4;
+                    while (k--)
+                    {
+                        uint32 entry = RAND(NPC_AZURE_CAPTAIN_1, NPC_AZURE_RAIDER_1, NPC_AZURE_STALKER_1, NPC_AZURE_SORCEROR_1);
+                        DoSummon(entry, me, 2.0f, 20000, TEMPSUMMON_DEAD_DESPAWN);
+                    }
 
-    void SummonedCreatureDies(Creature* summon, Unit* killer) override
-    {
-        npc_violet_hold_teleportation_portal_commonAI::SummonedCreatureDies(summon, killer);
+                    if (Creature* sinclariTrigger = _instance->GetCreature(DATA_SINCLARI_TRIGGER))
+                        sinclariTrigger->AI()->Talk(SAY_SINCLARI_ELITE_SQUAD);
 
-        if (_summons.empty())
-        {
-            _instance->SetData(DATA_WAVE_COUNT, _instance->GetData(DATA_WAVE_COUNT) + 1);
-            me->DespawnOrUnsummon();
-        }
-    }
-};
-
-struct npc_violet_hold_teleportation_portal_intro : public npc_violet_hold_teleportation_portal_commonAI
-{
-    npc_violet_hold_teleportation_portal_intro(Creature* creature) : npc_violet_hold_teleportation_portal_commonAI(creature)
-    {
-    }
-
-    void ScheduleTasks() override
-    {
-        if (_instance->GetData(DATA_MAIN_EVENT_STATE) != NOT_STARTED)
-            return;
-
-        _scheduler.Schedule(Seconds(15), [this](TaskContext task)
-        {
-            // Limit the number of current summons
-            if (_summons.size() < 3)
-            {
-                uint32 entry = RAND(NPC_AZURE_INVADER_1, NPC_AZURE_MAGE_SLAYER_1, NPC_AZURE_BINDER_1);
-                DoSummon(entry, me, 2.0f, 20s, TEMPSUMMON_DEAD_DESPAWN);
+                    task.Schedule(Seconds(1), [this](TaskContext /*task*/)
+                    {
+                        me->SetVisible(false);
+                    });
+                });
             }
 
-            task.Repeat();
-        });
-    }
+            void SummonedCreatureDies(Creature* summon, Unit* killer) override
+            {
+                npc_violet_hold_teleportation_portal_commonAI::SummonedCreatureDies(summon, killer);
+
+                if (_summons.empty())
+                {
+                    _instance->SetData(DATA_WAVE_COUNT, _instance->GetData(DATA_WAVE_COUNT) + 1);
+                    me->DespawnOrUnsummon();
+                }
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_violet_hold_teleportation_portal_eliteAI>(creature);
+        }
 };
 
-struct violet_hold_trashAI : public EscortAI
+class npc_violet_hold_teleportation_portal_intro : public CreatureScript
 {
-    violet_hold_trashAI(Creature* creature) : EscortAI(creature)
+    public:
+        npc_violet_hold_teleportation_portal_intro() : CreatureScript("npc_violet_hold_teleportation_portal_intro") { }
+
+        struct npc_violet_hold_teleportation_portal_introAI : public npc_violet_hold_teleportation_portal_commonAI
+        {
+            npc_violet_hold_teleportation_portal_introAI(Creature* creature) : npc_violet_hold_teleportation_portal_commonAI(creature)
+            {
+            }
+
+            void ScheduleTasks() override
+            {
+                if (_instance->GetData(DATA_MAIN_EVENT_STATE) != NOT_STARTED)
+                    return;
+
+                _scheduler.Schedule(Seconds(15), [this](TaskContext task)
+                {
+                    uint32 entry = RAND(NPC_AZURE_INVADER_1, NPC_AZURE_MAGE_SLAYER_1, NPC_AZURE_BINDER_1);
+                    DoSummon(entry, me, 2.0f, 20000, TEMPSUMMON_DEAD_DESPAWN);
+
+                    task.Repeat();
+                });
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_violet_hold_teleportation_portal_introAI>(creature);
+        }
+};
+
+struct violet_hold_trashAI : public npc_escortAI
+{
+    violet_hold_trashAI(Creature* creature) : npc_escortAI(creature)
     {
         _instance = creature->GetInstanceScript();
 
@@ -827,11 +840,10 @@ struct violet_hold_trashAI : public EscortAI
 
     void Reset() override
     {
-        if (!me->HasReactState(REACT_DEFENSIVE))
-            _scheduler.CancelAll();
+        _scheduler.CancelAll();
     }
 
-    template <size_t N>
+    template<size_t N>
     Position const* GetPathAndInitLastWaypointFrom(Position const (&path)[N])
     {
         _lastWaypointId = N - 1;
@@ -870,7 +882,7 @@ struct violet_hold_trashAI : public EscortAI
                     path = GetPathAndInitLastWaypointFrom(FifthPortalWPs);
                     break;
                 case 5:
-                    path = GetPathAndInitLastWaypointFrom(SixthPortalWPs);
+                    path = GetPathAndInitLastWaypointFrom(SixthPoralWPs);
                     break;
                 default:
                     path = GetPathAndInitLastWaypointFrom(DefaultPortalWPs);
@@ -888,27 +900,15 @@ struct violet_hold_trashAI : public EscortAI
         }
     }
 
-    void WaypointReached(uint32 waypointId, uint32 /*pathId*/) override
+    void WaypointReached(uint32 waypointId) override
     {
         if (waypointId == _lastWaypointId)
-        {
-            me->SetReactState(REACT_DEFENSIVE);
-            DoCastAOE(SPELL_DESTROY_DOOR_SEAL);
-            _scheduler.Schedule(Seconds(2), [this](TaskContext destroyDoorCheck)
-            {
-                if (!me->HasAura(SPELL_DESTROY_DOOR_SEAL))
-                    DoCastAOE(SPELL_DESTROY_DOOR_SEAL);
-                destroyDoorCheck.Repeat();
-            });
-        }
+            CreatureStartAttackDoor();
     }
 
-    void JustEngagedWith(Unit* who) override
+    void EnterCombat(Unit* who) override
     {
-        if (me->HasReactState(REACT_DEFENSIVE))
-            return;
-
-        EscortAI::JustEngagedWith(who);
+        npc_escortAI::EnterCombat(who);
         ScheduledTasks();
     }
 
@@ -921,10 +921,16 @@ struct violet_hold_trashAI : public EscortAI
             return;
 
         _scheduler.Update(diff,
-            std::bind(&EscortAI::DoMeleeAttackIfReady, this));
+            std::bind(&npc_escortAI::DoMeleeAttackIfReady, this));
     }
 
     virtual void ScheduledTasks() { }
+
+    void CreatureStartAttackDoor()
+    {
+        me->SetReactState(REACT_DEFENSIVE);
+        DoCastAOE(SPELL_DESTROY_DOOR_SEAL);
+    }
 
 protected:
     InstanceScript* _instance;
@@ -933,360 +939,493 @@ protected:
     uint32 _lastWaypointId;
 };
 
-struct npc_azure_invader : public violet_hold_trashAI
+class npc_azure_invader : public CreatureScript
 {
-    npc_azure_invader(Creature* creature) : violet_hold_trashAI(creature) { }
+    public:
+        npc_azure_invader() : CreatureScript("npc_azure_invader") { }
 
-    void ScheduledTasks() override
-    {
-        if (me->GetEntry() == NPC_AZURE_INVADER_1)
+        struct npc_azure_invaderAI : public violet_hold_trashAI
         {
-            _scheduler.Schedule(Seconds(5), [this](TaskContext task)
-            {
-                DoCastVictim(SPELL_CLEAVE);
-                task.Repeat();
-            });
+            npc_azure_invaderAI(Creature* creature) : violet_hold_trashAI(creature) { }
 
-            _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+            void ScheduledTasks() override
             {
-                DoCastVictim(SPELL_IMPALE);
-                task.Repeat();
-            });
+                if (me->GetEntry() == NPC_AZURE_INVADER_1)
+                {
+                    _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                    {
+                        DoCastVictim(SPELL_CLEAVE);
+                        task.Repeat();
+                    });
+
+                    _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+                    {
+                        DoCastVictim(SPELL_IMPALE);
+                        task.Repeat();
+                    });
+                }
+                else if (me->GetEntry() == NPC_AZURE_INVADER_2)
+                {
+                    _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                    {
+                        DoCastVictim(SPELL_BRUTAL_STRIKE);
+                        task.Repeat();
+                    });
+
+                    _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+                    {
+                        DoCastVictim(SPELL_SUNDER_ARMOR);
+                        task.Repeat(Seconds(8), Seconds(10));
+                    });
+                }
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_azure_invaderAI>(creature);
         }
-        else if (me->GetEntry() == NPC_AZURE_INVADER_2)
-        {
-            _scheduler.Schedule(Seconds(5), [this](TaskContext task)
-            {
-                DoCastVictim(SPELL_BRUTAL_STRIKE);
-                task.Repeat();
-            });
+};
 
-            _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+class npc_azure_binder : public CreatureScript
+{
+    public:
+        npc_azure_binder() : CreatureScript("npc_azure_binder") { }
+
+        struct npc_azure_binderAI : public violet_hold_trashAI
+        {
+            npc_azure_binderAI(Creature* creature) : violet_hold_trashAI(creature) { }
+
+            void ScheduledTasks() override
             {
-                DoCastVictim(SPELL_SUNDER_ARMOR);
-                task.Repeat(Seconds(8), Seconds(10));
-            });
+                if (me->GetEntry() == NPC_AZURE_BINDER_1)
+                {
+                    _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                    {
+                        DoCastAOE(SPELL_ARCANE_EXPLOSION);
+                        task.Repeat();
+                    });
+
+                    _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+                    {
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 30.0f))
+                            DoCast(target, SPELL_ARCANE_BARRAGE);
+                        task.Repeat(Seconds(6));
+                    });
+                }
+                else if (me->GetEntry() == NPC_AZURE_BINDER_2)
+                {
+                    _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                    {
+                        DoCastAOE(SPELL_FROST_NOVA);
+                        task.Repeat();
+                    });
+
+                    _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+                    {
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 40.0f))
+                            DoCast(target, SPELL_FROSTBOLT);
+                        task.Repeat(Seconds(6));
+                    });
+                }
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_azure_binderAI>(creature);
         }
-    }
 };
 
-struct npc_azure_binder : public violet_hold_trashAI
+class npc_azure_mage_slayer : public CreatureScript
 {
-    npc_azure_binder(Creature* creature) : violet_hold_trashAI(creature) { }
+    public:
+        npc_azure_mage_slayer() : CreatureScript("npc_azure_mage_slayer") { }
 
-    void ScheduledTasks() override
-    {
-        if (me->GetEntry() == NPC_AZURE_BINDER_1)
+        struct npc_azure_mage_slayerAI : public violet_hold_trashAI
         {
-            _scheduler.Schedule(Seconds(5), [this](TaskContext task)
-            {
-                DoCastAOE(SPELL_ARCANE_EXPLOSION);
-                task.Repeat();
-            });
+            npc_azure_mage_slayerAI(Creature* creature) : violet_hold_trashAI(creature) { }
 
-            _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+            void ScheduledTasks() override
             {
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 30.0f))
-                    DoCast(target, SPELL_ARCANE_BARRAGE);
-                task.Repeat(Seconds(6));
-            });
+                if (me->GetEntry() == NPC_AZURE_MAGE_SLAYER_1)
+                {
+                    _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                    {
+                        DoCast(me, SPELL_ARCANE_EMPOWERMENT);
+                        task.Repeat(Seconds(14));
+                    });
+                }
+                else if (me->GetEntry() == NPC_AZURE_MAGE_SLAYER_2)
+                {
+                    _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                    {
+                        // wrong spellid?
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 30.0f))
+                            DoCast(target, SPELL_SPELL_LOCK);
+                        task.Repeat(Seconds(9));
+                    });
+                }
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_azure_mage_slayerAI>(creature);
         }
-        else if (me->GetEntry() == NPC_AZURE_BINDER_2)
-        {
-            _scheduler.Schedule(Seconds(5), [this](TaskContext task)
-            {
-                DoCastAOE(SPELL_FROST_NOVA);
-                task.Repeat();
-            });
+};
 
-            _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+class npc_azure_raider : public CreatureScript
+{
+    public:
+        npc_azure_raider() : CreatureScript("npc_azure_raider") { }
+
+        struct npc_azure_raiderAI : public violet_hold_trashAI
+        {
+            npc_azure_raiderAI(Creature* creature) : violet_hold_trashAI(creature) { }
+
+            void ScheduledTasks() override
             {
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 40.0f))
-                    DoCast(target, SPELL_FROSTBOLT);
-                task.Repeat(Seconds(6));
-            });
+                _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                {
+                    DoCastVictim(SPELL_CONCUSSION_BLOW);
+                    task.Repeat();
+                });
+
+                _scheduler.Schedule(Seconds(8), [this](TaskContext task)
+                {
+                    DoCast(me, SPELL_MAGIC_REFLECTION);
+                    task.Repeat(Seconds(10), Seconds(15));
+                });
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_azure_raiderAI>(creature);
         }
-    }
 };
 
-struct npc_azure_mage_slayer : public violet_hold_trashAI
+class npc_azure_stalker : public CreatureScript
 {
-    npc_azure_mage_slayer(Creature* creature) : violet_hold_trashAI(creature) { }
+    public:
+        npc_azure_stalker() : CreatureScript("npc_azure_stalker") { }
 
-    void ScheduledTasks() override
-    {
-        if (me->GetEntry() == NPC_AZURE_MAGE_SLAYER_1)
+        struct npc_azure_stalkerAI : public violet_hold_trashAI
         {
-            _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+            npc_azure_stalkerAI(Creature* creature) : violet_hold_trashAI(creature) { }
+
+            void ScheduledTasks() override
             {
-                DoCast(me, SPELL_ARCANE_EMPOWERMENT);
-                task.Repeat(Seconds(14));
-            });
+                _scheduler.Schedule(Seconds(8), [this](TaskContext task)
+                {
+                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 40.0f))
+                        DoCast(target, SPELL_TACTICAL_BLINK);
+
+                    task.Schedule(Milliseconds(1300), [this](TaskContext /*task*/)
+                    {
+                        if (Unit* target = SelectTarget(SELECT_TARGET_NEAREST, 0, 5.0f))
+                            DoCast(target, SPELL_BACKSTAB);
+                    });
+
+                    task.Repeat();
+                });
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_azure_stalkerAI>(creature);
         }
-        else if (me->GetEntry() == NPC_AZURE_MAGE_SLAYER_2)
+};
+
+class npc_azure_spellbreaker : public CreatureScript
+{
+    public:
+        npc_azure_spellbreaker() : CreatureScript("npc_azure_spellbreaker") { }
+
+        struct npc_azure_spellbreakerAI : public violet_hold_trashAI
         {
-            _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+            npc_azure_spellbreakerAI(Creature* creature) : violet_hold_trashAI(creature) { }
+
+            void ScheduledTasks() override
             {
-                // wrong spellid?
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 30.0f))
-                    DoCast(target, SPELL_SPELL_LOCK);
-                task.Repeat(Seconds(9));
-            });
+                if (me->GetEntry() == NPC_AZURE_SPELLBREAKER_1)
+                {
+                    _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                    {
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 30.0f))
+                            DoCast(target, SPELL_ARCANE_BLAST);
+                        task.Repeat(Seconds(6));
+                    });
+
+                    _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+                    {
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 30.0f))
+                            DoCast(target, SPELL_SLOW);
+                        task.Repeat(Seconds(5));
+                    });
+                }
+                else if (me->GetEntry() == NPC_AZURE_SPELLBREAKER_2)
+                {
+                    _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                    {
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 30.0f))
+                            DoCast(target, SPELL_CHAINS_OF_ICE);
+                        task.Repeat(Seconds(7));
+                    });
+
+                    _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+                    {
+                        DoCast(me, SPELL_CONE_OF_COLD);
+                        task.Repeat(Seconds(5));
+                    });
+                }
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_azure_spellbreakerAI>(creature);
         }
-    }
 };
 
-struct npc_azure_raider : public violet_hold_trashAI
+class npc_azure_captain : public CreatureScript
 {
-    npc_azure_raider(Creature* creature) : violet_hold_trashAI(creature) { }
+    public:
+        npc_azure_captain() : CreatureScript("npc_azure_captain") { }
 
-    void ScheduledTasks() override
-    {
-        _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+        struct  npc_azure_captainAI : public violet_hold_trashAI
         {
-            DoCastVictim(SPELL_CONCUSSION_BLOW);
-            task.Repeat();
-        });
+            npc_azure_captainAI(Creature* creature) : violet_hold_trashAI(creature) { }
 
-        _scheduler.Schedule(Seconds(8), [this](TaskContext task)
-        {
-            DoCast(me, SPELL_MAGIC_REFLECTION);
-            task.Repeat(Seconds(10), Seconds(15));
-        });
-    }
-};
-
-struct npc_azure_stalker : public violet_hold_trashAI
-{
-    npc_azure_stalker(Creature* creature) : violet_hold_trashAI(creature) { }
-
-    void ScheduledTasks() override
-    {
-        _scheduler.Schedule(Seconds(8), [this](TaskContext task)
-        {
-            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 40.0f))
-                DoCast(target, SPELL_TACTICAL_BLINK);
-
-            task.Schedule(Milliseconds(1300), [this](TaskContext /*task*/)
+            void ScheduledTasks() override
             {
-                if (Unit* target = SelectTarget(SelectTargetMethod::MinDistance, 0, 5.0f))
-                    DoCast(target, SPELL_BACKSTAB);
-            });
+                _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+                {
+                    DoCastVictim(SPELL_MORTAL_STRIKE);
+                    task.Repeat();
+                });
 
-            task.Repeat();
-        });
-    }
-};
+                _scheduler.Schedule(Seconds(8), [this](TaskContext task)
+                {
+                    DoCast(me, SPELL_WHIRLWIND_OF_STEEL);
+                    task.Repeat();
+                });
+            }
+        };
 
-struct npc_azure_spellbreaker : public violet_hold_trashAI
-{
-    npc_azure_spellbreaker(Creature* creature) : violet_hold_trashAI(creature) { }
-
-    void ScheduledTasks() override
-    {
-        if (me->GetEntry() == NPC_AZURE_SPELLBREAKER_1)
+        CreatureAI* GetAI(Creature* creature) const override
         {
-            _scheduler.Schedule(Seconds(5), [this](TaskContext task)
-            {
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 30.0f))
-                    DoCast(target, SPELL_ARCANE_BLAST);
-                task.Repeat(Seconds(6));
-            });
-
-            _scheduler.Schedule(Seconds(4), [this](TaskContext task)
-            {
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 30.0f))
-                    DoCast(target, SPELL_SLOW);
-                task.Repeat(Seconds(5));
-            });
+            return GetVioletHoldAI<npc_azure_captainAI>(creature);
         }
-        else if (me->GetEntry() == NPC_AZURE_SPELLBREAKER_2)
-        {
-            _scheduler.Schedule(Seconds(5), [this](TaskContext task)
-            {
-                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 30.0f))
-                    DoCast(target, SPELL_CHAINS_OF_ICE);
-                task.Repeat(Seconds(7));
-            });
+};
 
-            _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+class npc_azure_sorceror : public CreatureScript
+{
+    public:
+        npc_azure_sorceror() : CreatureScript("npc_azure_sorceror") { }
+
+        struct  npc_azure_sorcerorAI : public violet_hold_trashAI
+        {
+            npc_azure_sorcerorAI(Creature* creature) : violet_hold_trashAI(creature) { }
+
+            void ScheduledTasks() override
             {
-                DoCast(me, SPELL_CONE_OF_COLD);
-                task.Repeat(Seconds(5));
-            });
+                _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+                {
+                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 35.0f))
+                        DoCast(target, SPELL_ARCANE_STREAM);
+                    task.Repeat(Seconds(5), Seconds(10));
+                });
+
+                _scheduler.Schedule(Seconds(), Seconds(), [this](TaskContext task)
+                {
+                    DoCastAOE(SPELL_MANA_DETONATION);
+                    task.Repeat(Seconds(2), Seconds(6));
+                });
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetVioletHoldAI<npc_azure_sorcerorAI>(creature);
         }
-    }
 };
 
-struct npc_azure_captain : public violet_hold_trashAI
+class npc_violet_hold_defense_system : public CreatureScript
 {
-    npc_azure_captain(Creature* creature) : violet_hold_trashAI(creature) { }
+    public:
+        npc_violet_hold_defense_system() : CreatureScript("npc_violet_hold_defense_system") { }
 
-    void ScheduledTasks() override
-    {
-        _scheduler.Schedule(Seconds(5), [this](TaskContext task)
+        struct npc_violet_hold_defense_systemAI : public ScriptedAI
         {
-            DoCastVictim(SPELL_MORTAL_STRIKE);
-            task.Repeat();
-        });
+            npc_violet_hold_defense_systemAI(Creature* creature) : ScriptedAI(creature) { }
 
-        _scheduler.Schedule(Seconds(8), [this](TaskContext task)
+            void Reset() override
+            {
+                ScheduledTasks();
+                me->DespawnOrUnsummon(7000);
+            }
+
+            void ScheduledTasks()
+            {
+                _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+                {
+                    DoCastAOE(SPELL_ARCANE_LIGHTNING_DAMAGE);
+                    DoCastAOE(SPELL_ARCANE_LIGHTNING_DUMMY);
+                    if (task.GetRepeatCounter() == 2)
+                        DoCastAOE(SPELL_ARCANE_LIGHTNING_INSTAKILL);
+                    else
+                        task.Repeat(Seconds(1));
+                });
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                _scheduler.Update(diff);
+            }
+
+        private:
+            TaskScheduler _scheduler;
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
         {
-            DoCast(me, SPELL_WHIRLWIND_OF_STEEL);
-            task.Repeat();
-        });
-    }
+            return new npc_violet_hold_defense_systemAI(creature);
+        }
 };
 
-struct npc_azure_sorceror : public violet_hold_trashAI
+class go_activation_crystal : public GameObjectScript
 {
-    npc_azure_sorceror(Creature* creature) : violet_hold_trashAI(creature) { }
+    public:
+        go_activation_crystal() : GameObjectScript("go_activation_crystal") { }
 
-    void ScheduledTasks() override
-    {
-        _scheduler.Schedule(Seconds(4), [this](TaskContext task)
+        bool OnGossipHello(Player* player, GameObject* /*go*/) override
         {
-            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 35.0f))
-                DoCast(target, SPELL_ARCANE_STREAM);
-            task.Repeat(Seconds(5), Seconds(10));
-        });
-
-        _scheduler.Schedule(Seconds(), Seconds(), [this](TaskContext task)
-        {
-            DoCastAOE(SPELL_MANA_DETONATION);
-            task.Repeat(Seconds(2), Seconds(6));
-        });
-    }
-};
-
-struct npc_violet_hold_defense_system : public ScriptedAI
-{
-    npc_violet_hold_defense_system(Creature* creature) : ScriptedAI(creature) { }
-
-    void Reset() override
-    {
-        ScheduledTasks();
-        me->DespawnOrUnsummon(7s);
-    }
-
-    void ScheduledTasks()
-    {
-        _scheduler.Schedule(Seconds(4), [this](TaskContext task)
-        {
-            DoCastAOE(SPELL_ARCANE_LIGHTNING_DAMAGE);
-            DoCastAOE(SPELL_ARCANE_LIGHTNING_DUMMY);
-            if (task.GetRepeatCounter() == 2)
-                DoCastAOE(SPELL_ARCANE_LIGHTNING_INSTAKILL);
-            else
-                task.Repeat(Seconds(1));
-        });
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        _scheduler.Update(diff);
-    }
-
-private:
-    TaskScheduler _scheduler;
-};
-
-struct go_activation_crystal : public GameObjectAI
-{
-    go_activation_crystal(GameObject* go) : GameObjectAI(go) { }
-
-    bool OnGossipHello(Player* player) override
-    {
-        player->CastSpell(player, SPELL_CRYSTAL_ACTIVATION, true);
-        return false;
-    }
+            player->CastSpell(player, SPELL_CRYSTAL_ACTIVATION, true);
+            return false;
+        }
 };
 
 // 58040 - Destroy Door Seal
-class spell_violet_hold_destroy_door_seal : public AuraScript
+class spell_violet_hold_destroy_door_seal : public SpellScriptLoader
 {
-    PrepareAuraScript(spell_violet_hold_destroy_door_seal);
+    public:
+        spell_violet_hold_destroy_door_seal() : SpellScriptLoader("spell_violet_hold_destroy_door_seal") { }
 
-    bool Load() override
-    {
-        _instance = GetUnitOwner()->GetInstanceScript();
-        return _instance != nullptr;
-    }
+        class spell_violet_hold_destroy_door_seal_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_violet_hold_destroy_door_seal_AuraScript);
 
-    void PeriodicTick(AuraEffect const* /*aurEff*/)
-    {
-        PreventDefaultAction();
-        if (uint32 integrity = _instance->GetData(DATA_DOOR_INTEGRITY))
-            _instance->SetData(DATA_DOOR_INTEGRITY, integrity - 1);
-    }
+            bool Load() override
+            {
+                _instance = GetUnitOwner()->GetInstanceScript();
+                return _instance != nullptr;
+            }
 
-    void Register() override
-    {
-        OnEffectPeriodic += AuraEffectPeriodicFn(spell_violet_hold_destroy_door_seal::PeriodicTick, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL);
-    }
+            void PeriodicTick(AuraEffect const* /*aurEff*/)
+            {
+                PreventDefaultAction();
+                if (uint32 integrity = _instance->GetData(DATA_DOOR_INTEGRITY))
+                    _instance->SetData(DATA_DOOR_INTEGRITY, integrity - 1);
+            }
 
-private:
-    InstanceScript* _instance = nullptr;
+            void Register() override
+            {
+                OnEffectPeriodic += AuraEffectPeriodicFn(spell_violet_hold_destroy_door_seal_AuraScript::PeriodicTick, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL);
+            }
+
+        private:
+            InstanceScript* _instance = nullptr;
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_violet_hold_destroy_door_seal_AuraScript();
+        }
 };
 
 // 58008 - Portal Periodic
-class spell_violet_hold_portal_periodic : public AuraScript
+class spell_violet_hold_portal_periodic : public SpellScriptLoader
 {
-    PrepareAuraScript(spell_violet_hold_portal_periodic);
+    public:
+        spell_violet_hold_portal_periodic() : SpellScriptLoader("spell_violet_hold_portal_periodic") { }
 
-    void PeriodicTick(AuraEffect const* aurEff)
-    {
-        PreventDefaultAction();
-        if (UnitAI* targetAI = GetTarget()->GetAI())
-            targetAI->SetData(DATA_PORTAL_PERIODIC_TICK, aurEff->GetTickNumber());
-    }
+        class spell_violet_hold_portal_periodic_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_violet_hold_portal_periodic_AuraScript);
 
-    void Register() override
-    {
-        OnEffectPeriodic += AuraEffectPeriodicFn(spell_violet_hold_portal_periodic::PeriodicTick, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL);
-    }
+            void PeriodicTick(AuraEffect const* aurEff)
+            {
+                PreventDefaultAction();
+                if (GetTarget()->IsAIEnabled)
+                    GetTarget()->GetAI()->SetData(DATA_PORTAL_PERIODIC_TICK, aurEff->GetTickNumber());
+            }
+
+            void Register() override
+            {
+                OnEffectPeriodic += AuraEffectPeriodicFn(spell_violet_hold_portal_periodic_AuraScript::PeriodicTick, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_violet_hold_portal_periodic_AuraScript();
+        }
 };
 
 // 62138 - Teleport to Inside Violet Hold
-class spell_violet_hold_teleport_player : public SpellScript
+class spell_violet_hold_teleport_player : public SpellScriptLoader
 {
-    PrepareSpellScript(spell_violet_hold_teleport_player);
+    public:
+        spell_violet_hold_teleport_player() : SpellScriptLoader("spell_violet_hold_teleport_player") { }
 
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo({ SPELL_TELEPORT_PLAYER_EFFECT });
-    }
+        class spell_violet_hold_teleport_player_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_violet_hold_teleport_player_SpellScript);
 
-    void HandleScript(SpellEffIndex /*effIndex*/)
-    {
-        if (Unit* target = GetHitUnit())
-            target->CastSpell(target, SPELL_TELEPORT_PLAYER_EFFECT, true);
-    }
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                return ValidateSpellInfo({ SPELL_TELEPORT_PLAYER_EFFECT });
+            }
 
-    void Register() override
-    {
-        OnEffectHitTarget += SpellEffectFn(spell_violet_hold_teleport_player::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
-    }
+            void HandleScript(SpellEffIndex /*effIndex*/)
+            {
+                if (Unit* target = GetHitUnit())
+                    target->CastSpell(target, SPELL_TELEPORT_PLAYER_EFFECT, true);
+            }
+
+            void Register() override
+            {
+                OnEffectHitTarget += SpellEffectFn(spell_violet_hold_teleport_player_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
+            }
+        };
+
+        SpellScript* GetSpellScript() const override
+        {
+            return new spell_violet_hold_teleport_player_SpellScript();
+        }
 };
 
 void AddSC_violet_hold()
 {
-    RegisterVioletHoldCreatureAI(npc_sinclari_vh);
-    RegisterVioletHoldCreatureAI(npc_violet_hold_teleportation_portal);
-    RegisterVioletHoldCreatureAI(npc_violet_hold_teleportation_portal_elite);
-    RegisterVioletHoldCreatureAI(npc_violet_hold_teleportation_portal_intro);
-    RegisterVioletHoldCreatureAI(npc_azure_invader);
-    RegisterVioletHoldCreatureAI(npc_azure_spellbreaker);
-    RegisterVioletHoldCreatureAI(npc_azure_binder);
-    RegisterVioletHoldCreatureAI(npc_azure_mage_slayer);
-    RegisterVioletHoldCreatureAI(npc_azure_captain);
-    RegisterVioletHoldCreatureAI(npc_azure_sorceror);
-    RegisterVioletHoldCreatureAI(npc_azure_raider);
-    RegisterVioletHoldCreatureAI(npc_azure_stalker);
-    RegisterVioletHoldCreatureAI(npc_azure_saboteur);
-    RegisterVioletHoldCreatureAI(npc_violet_hold_defense_system);
-    RegisterVioletHoldGameObjectAI(go_activation_crystal);
-    RegisterSpellScript(spell_violet_hold_destroy_door_seal);
-    RegisterSpellScript(spell_violet_hold_portal_periodic);
-    RegisterSpellScript(spell_violet_hold_teleport_player);
+    new npc_sinclari_vh();
+    new npc_violet_hold_teleportation_portal();
+    new npc_violet_hold_teleportation_portal_elite();
+    new npc_violet_hold_teleportation_portal_intro();
+    new npc_azure_invader();
+    new npc_azure_spellbreaker();
+    new npc_azure_binder();
+    new npc_azure_mage_slayer();
+    new npc_azure_captain();
+    new npc_azure_sorceror();
+    new npc_azure_raider();
+    new npc_azure_stalker();
+    new npc_azure_saboteur();
+    new npc_violet_hold_defense_system();
+    new go_activation_crystal();
+    new spell_violet_hold_destroy_door_seal();
+    new spell_violet_hold_portal_periodic();
+    new spell_violet_hold_teleport_player();
 }

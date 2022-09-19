@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,7 +16,6 @@
  */
 
 #include "ScriptMgr.h"
-#include "blackrock_depths.h"
 #include "ScriptedCreature.h"
 
 enum Spells
@@ -49,12 +48,12 @@ class boss_high_interrogator_gerstahn : public CreatureScript
                 _events.Reset();
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void EnterCombat(Unit* /*who*/) override
             {
-                _events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 4s);
-                _events.ScheduleEvent(EVENT_MANABURN, 14s);
-                _events.ScheduleEvent(EVENT_PSYCHIC_SCREAM, 32s);
-                _events.ScheduleEvent(EVENT_SHADOWSHIELD, 8s);
+                _events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 4000);
+                _events.ScheduleEvent(EVENT_MANABURN, 14000);
+                _events.ScheduleEvent(EVENT_PSYCHIC_SCREAM, 32000);
+                _events.ScheduleEvent(EVENT_SHADOWSHIELD, 8000);
             }
 
             void UpdateAI(uint32 diff) override
@@ -69,22 +68,22 @@ class boss_high_interrogator_gerstahn : public CreatureScript
                     switch (eventId)
                     {
                         case EVENT_SHADOW_WORD_PAIN:
-                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 100.0f, true))
+                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
                                 DoCast(target, SPELL_SHADOWWORDPAIN);
-                            _events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 7s);
+                            _events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 7000);
                             break;
                         case EVENT_PSYCHIC_SCREAM:
                             DoCastVictim(SPELL_PSYCHICSCREAM);
-                            _events.ScheduleEvent(EVENT_PSYCHIC_SCREAM, 30s);
+                            _events.ScheduleEvent(EVENT_PSYCHIC_SCREAM, 30000);
                             break;
                         case EVENT_MANABURN:
-                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 100.0f, true))
+                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
                                 DoCast(target, SPELL_MANABURN);
-                            _events.ScheduleEvent(EVENT_MANABURN, 10s);
+                            _events.ScheduleEvent(EVENT_MANABURN, 10000);
                             break;
                         case EVENT_SHADOWSHIELD:
                             DoCast(me, SPELL_SHADOWSHIELD);
-                            _events.ScheduleEvent(EVENT_SHADOWSHIELD, 25s);
+                            _events.ScheduleEvent(EVENT_SHADOWSHIELD, 25000);
                             break;
                         default:
                             break;
@@ -100,7 +99,7 @@ class boss_high_interrogator_gerstahn : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetBlackrockDepthsAI<boss_high_interrogator_gerstahnAI>(creature);
+            return new boss_high_interrogator_gerstahnAI(creature);
         }
 };
 

@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,9 +15,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "zulgurub.h"
-#include "ScriptedCreature.h"
+#include "ObjectMgr.h"
 #include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "zulgurub.h"
 
 enum Yells
 {
@@ -31,53 +32,63 @@ enum Events
 {
 };
 
-struct boss_grilek : public BossAI
+class boss_grilek : public CreatureScript
 {
-    boss_grilek(Creature* creature) : BossAI(creature, DATA_GRILEK)
-    {
-    }
+    public:
+        boss_grilek() : CreatureScript("boss_grilek") { }
 
-    void Reset() override
-    {
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-    }
-
-    void JustEngagedWith(Unit* who) override
-    {
-        BossAI::JustEngagedWith(who);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-        /*
-        while (uint32 eventId = events.ExecuteEvent())
+        struct boss_grilekAI : public BossAI
         {
-            switch (eventId)
+            boss_grilekAI(Creature* creature) : BossAI(creature, DATA_GRILEK)
             {
-                default:
-                    break;
             }
 
-            if (me->HasUnitState(UNIT_STATE_CASTING))
-                return;
-        }
-        */
+            void Reset() override
+            {
+            }
 
-        DoMeleeAttackIfReady();
-    }
+            void EnterCombat(Unit* /*who*/) override
+            {
+            }
+
+            void JustDied(Unit* /*killer*/) override
+            {
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                if (!UpdateVictim())
+                    return;
+
+                events.Update(diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+                /*
+                while (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                        default:
+                            break;
+                    }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
+                }
+                */
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
+        {
+            return GetZulGurubAI<boss_grilekAI>(creature);
+        }
 };
 
 void AddSC_boss_grilek()
 {
-    RegisterZulGurubCreatureAI(boss_grilek);
+    new boss_grilek();
 }

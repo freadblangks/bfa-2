@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -28,17 +28,6 @@
 
 uint32 const DragonspireMobs[3] = { NPC_BLACKHAND_DREADWEAVER, NPC_BLACKHAND_SUMMONER, NPC_BLACKHAND_VETERAN };
 
-DoorData const doorData[] =
-{
-    { GO_DOORS,                  DATA_PYROGAURD_EMBERSEER,     DOOR_TYPE_ROOM },
-    { GO_EMBERSEER_OUT,          DATA_PYROGAURD_EMBERSEER,     DOOR_TYPE_PASSAGE },
-    { GO_DRAKKISATH_DOOR_1,      DATA_GENERAL_DRAKKISATH,      DOOR_TYPE_PASSAGE },
-    { GO_DRAKKISATH_DOOR_2,      DATA_GENERAL_DRAKKISATH,      DOOR_TYPE_PASSAGE },
-    { GO_PORTCULLIS_ACTIVE,      DATA_WARCHIEF_REND_BLACKHAND, DOOR_TYPE_PASSAGE },
-    { GO_PORTCULLIS_TOBOSSROOMS, DATA_WARCHIEF_REND_BLACKHAND, DOOR_TYPE_PASSAGE },
-    { 0,                         0,                            DOOR_TYPE_ROOM    }
-};
-
 enum EventIds
 {
     EVENT_DARGONSPIRE_ROOM_STORE           = 1,
@@ -62,7 +51,6 @@ public:
         {
             SetHeaders(DataHeader);
             SetBossNumber(EncounterCount);
-            LoadDoorData(doorData);
         }
 
         void OnCreatureCreate(Creature* creature) override
@@ -99,12 +87,12 @@ public:
                 case NPC_PYROGAURD_EMBERSEER:
                     PyroguardEmberseer = creature->GetGUID();
                     if (GetBossState(DATA_PYROGAURD_EMBERSEER) == DONE)
-                        creature->DespawnOrUnsummon(0s, 7_days);
+                        creature->DisappearAndDie();
                     break;
                 case NPC_WARCHIEF_REND_BLACKHAND:
                     WarchiefRendBlackhand = creature->GetGUID();
                     if (GetBossState(DATA_GYTH) == DONE)
-                        creature->DespawnOrUnsummon(0s, 7_days);
+                        creature->DisappearAndDie();
                     break;
                 case NPC_GYTH:
                     Gyth = creature->GetGUID();
@@ -118,21 +106,16 @@ public:
                 case NPC_LORD_VICTOR_NEFARIUS:
                     LordVictorNefarius = creature->GetGUID();
                     if (GetBossState(DATA_GYTH) == DONE)
-                        creature->DespawnOrUnsummon(0s, 7_days);
+                        creature->DisappearAndDie();
                     break;
                 case NPC_SCARSHIELD_INFILTRATOR:
                     ScarshieldInfiltrator = creature->GetGUID();
-                    break;
-                case NPC_BLACKHAND_INCARCERATOR:
-                    _incarceratorList.push_back(creature->GetGUID());
                     break;
              }
          }
 
         void OnGameObjectCreate(GameObject* go) override
         {
-            InstanceScript::OnGameObjectCreate(go);
-
             switch (go->GetEntry())
             {
                 case GO_WHELP_SPAWNER:
@@ -268,7 +251,7 @@ public:
              return true;
         }
 
-        void ProcessEvent(WorldObject* /*obj*/, uint32 eventId, WorldObject* /*invoker*/) override
+        void ProcessEvent(WorldObject* /*obj*/, uint32 eventId) override
         {
             switch (eventId)
             {
@@ -298,14 +281,8 @@ public:
                     if (data == AREATRIGGER_DRAGONSPIRE_HALL)
                     {
                         if (GetBossState(DATA_DRAGONSPIRE_ROOM) != DONE)
-                            Events.ScheduleEvent(EVENT_DARGONSPIRE_ROOM_STORE, 1s);
+                            Events.ScheduleEvent(EVENT_DARGONSPIRE_ROOM_STORE, 1000);
                     }
-                    break;
-                case DATA_BLACKHAND_INCARCERATOR:
-                    for (GuidList::const_iterator itr = _incarceratorList.begin(); itr != _incarceratorList.end(); ++itr)
-                        if (Creature* creature = instance->GetCreature(*itr))
-                            creature->Respawn();
-                    break;
                 default:
                     break;
             }
@@ -399,12 +376,12 @@ public:
                 {
                     case EVENT_DARGONSPIRE_ROOM_STORE:
                         Dragonspireroomstore();
-                        Events.ScheduleEvent(EVENT_DARGONSPIRE_ROOM_CHECK, 3s);
+                        Events.ScheduleEvent(EVENT_DARGONSPIRE_ROOM_CHECK, 3000);
                         break;
                     case EVENT_DARGONSPIRE_ROOM_CHECK:
                         Dragonspireroomcheck();
                         if ((GetBossState(DATA_DRAGONSPIRE_ROOM) != DONE))
-                            Events.ScheduleEvent(EVENT_DARGONSPIRE_ROOM_CHECK, 3s);
+                            Events.ScheduleEvent(EVENT_DARGONSPIRE_ROOM_CHECK, 3000);
                         break;
                     default:
                          break;
@@ -414,10 +391,11 @@ public:
 
         void Dragonspireroomstore()
         {
+            uint8 creatureCount;
+
             for (uint8 i = 0; i < 7; ++i)
             {
-                // Refresh the creature list
-                runecreaturelist[i].clear();
+                creatureCount = 0;
 
                 if (GameObject* rune = instance->GetGameObject(go_roomrunes[i]))
                 {
@@ -428,7 +406,10 @@ public:
                         for (std::list<Creature*>::iterator itr = creatureList.begin(); itr != creatureList.end(); ++itr)
                         {
                             if (Creature* creature = *itr)
-                                runecreaturelist[i].push_back(creature->GetGUID());
+                            {
+                                runecreaturelist[i][creatureCount] = creature->GetGUID();
+                                ++creatureCount;
+                            }
                         }
                     }
                 }
@@ -449,9 +430,9 @@ public:
 
                 if (rune->GetGoState() == GO_STATE_ACTIVE)
                 {
-                    for (ObjectGuid const& guid : runecreaturelist[i])
+                    for (uint8 ii = 0; ii < 5; ++ii)
                     {
-                        mob = instance->GetCreature(guid);
+                        mob = instance->GetCreature(runecreaturelist[i][ii]);
                         if (mob && mob->IsAlive())
                             _mobAlive = true;
                     }
@@ -526,10 +507,9 @@ public:
             ObjectGuid go_blackrockaltar;
             ObjectGuid go_roomrunes[7];
             ObjectGuid go_emberseerrunes[7];
-            GuidVector runecreaturelist[7];
+            ObjectGuid runecreaturelist[7][5];
             ObjectGuid go_portcullis_active;
             ObjectGuid go_portcullis_tobossrooms;
-            GuidList _incarceratorList;
     };
 
     InstanceScript* GetInstanceScript(InstanceMap* map) const override
@@ -547,7 +527,7 @@ class at_dragonspire_hall : public AreaTriggerScript
 public:
     at_dragonspire_hall() : AreaTriggerScript("at_dragonspire_hall") { }
 
-    bool OnTrigger(Player* player, AreaTriggerEntry const* /*areaTrigger*/) override
+    bool OnTrigger(Player* player, const AreaTriggerEntry* /*areaTrigger*/, bool /*entered*/) override
     {
         if (player && player->IsAlive())
         {
@@ -571,7 +551,7 @@ class at_blackrock_stadium : public AreaTriggerScript
 public:
     at_blackrock_stadium() : AreaTriggerScript("at_blackrock_stadium") { }
 
-    bool OnTrigger(Player* player, AreaTriggerEntry const* /*areaTrigger*/) override
+    bool OnTrigger(Player* player, const AreaTriggerEntry* /*areaTrigger*/, bool /*entered*/) override
     {
         if (player && player->IsAlive())
         {
@@ -595,23 +575,19 @@ class at_nearby_scarshield_infiltrator : public AreaTriggerScript
 public:
     at_nearby_scarshield_infiltrator() : AreaTriggerScript("at_nearby_scarshield_infiltrator") { }
 
-    bool OnTrigger(Player* player, AreaTriggerEntry const* /*at*/) override
+    bool OnTrigger(Player* player, const AreaTriggerEntry* /*at*/, bool /*entered*/) override
     {
         if (player->IsAlive())
-        {
             if (InstanceScript* instance = player->GetInstanceScript())
-            {
                 if (Creature* infiltrator = ObjectAccessor::GetCreature(*player, instance->GetGuidData(DATA_SCARSHIELD_INFILTRATOR)))
                 {
-                    if (player->GetLevel() >= 57)
+                    if (player->getLevel() >= 57)
                         infiltrator->AI()->SetData(1, 1);
                     else if (infiltrator->GetEntry() == NPC_SCARSHIELD_INFILTRATOR)
                         infiltrator->AI()->Talk(0, player);
 
                     return true;
                 }
-            }
-        }
 
         return false;
     }

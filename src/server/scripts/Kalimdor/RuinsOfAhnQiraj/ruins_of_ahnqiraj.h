@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -60,10 +60,10 @@ enum AQRGameObjectIds
     GO_OSSIRIAN_CRYSTAL         = 180619
 };
 
-template <class AI, class T>
-inline AI* GetAQ20AI(T* obj)
+template<typename AI>
+inline AI* GetAQ20AI(Creature* creature)
 {
-    return GetInstanceAI<AI>(obj, AQ20ScriptName);
+    return GetInstanceAI<AI>(creature, AQ20ScriptName);
 }
 
 #endif

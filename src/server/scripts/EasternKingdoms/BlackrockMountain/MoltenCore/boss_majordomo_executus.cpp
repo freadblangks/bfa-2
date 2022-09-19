@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -55,6 +55,7 @@ enum Spells
 enum Extras
 {
     OPTION_ID_YOU_CHALLENGED_US   = 0,
+    FACTION_FRIENDLY              = 35,
     MENU_OPTION_YOU_CHALLENGED_US = 4108
 };
 
@@ -70,138 +71,148 @@ enum Events
     EVENT_OUTRO_3           = 7
 };
 
-struct boss_majordomo : public BossAI
+class boss_majordomo : public CreatureScript
 {
-    boss_majordomo(Creature* creature) : BossAI(creature, BOSS_MAJORDOMO_EXECUTUS)
-    {
-    }
+    public:
+        boss_majordomo() : CreatureScript("boss_majordomo") { }
 
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        if (urand(0, 99) < 25)
-            Talk(SAY_SLAY);
-    }
-
-    void JustEngagedWith(Unit* who) override
-    {
-        BossAI::JustEngagedWith(who);
-        Talk(SAY_AGGRO);
-        events.ScheduleEvent(EVENT_MAGIC_REFLECTION, 30s);
-        events.ScheduleEvent(EVENT_DAMAGE_REFLECTION, 15s);
-        events.ScheduleEvent(EVENT_BLAST_WAVE, 10s);
-        events.ScheduleEvent(EVENT_TELEPORT, 20s);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (instance->GetBossState(BOSS_MAJORDOMO_EXECUTUS) != DONE)
+        struct boss_majordomoAI : public BossAI
         {
-            if (!UpdateVictim())
-                return;
-
-            events.Update(diff);
-
-            if (!me->FindNearestCreature(NPC_FLAMEWAKER_HEALER, 100.0f) && !me->FindNearestCreature(NPC_FLAMEWAKER_ELITE, 100.0f))
+            boss_majordomoAI(Creature* creature) : BossAI(creature, BOSS_MAJORDOMO_EXECUTUS)
             {
-                instance->UpdateEncounterStateForKilledCreature(me->GetEntry(), me);
-                me->SetFaction(FACTION_FRIENDLY);
-                EnterEvadeMode();
-                Talk(SAY_DEFEAT);
-                _JustDied();
-                events.ScheduleEvent(EVENT_OUTRO_1, 32s);
-                return;
             }
 
-            if (me->HasUnitState(UNIT_STATE_CASTING))
-                return;
-
-            if (HealthBelowPct(50))
-                DoCast(me, SPELL_AEGIS_OF_RAGNAROS, true);
-
-            while (uint32 eventId = events.ExecuteEvent())
+            void KilledUnit(Unit* /*victim*/) override
             {
-                switch (eventId)
+                if (urand(0, 99) < 25)
+                    Talk(SAY_SLAY);
+            }
+
+            void EnterCombat(Unit* who) override
+            {
+                BossAI::EnterCombat(who);
+                Talk(SAY_AGGRO);
+                events.ScheduleEvent(EVENT_MAGIC_REFLECTION, 30000);
+                events.ScheduleEvent(EVENT_DAMAGE_REFLECTION, 15000);
+                events.ScheduleEvent(EVENT_BLAST_WAVE, 10000);
+                events.ScheduleEvent(EVENT_TELEPORT, 20000);
+            }
+
+            void UpdateAI(uint32 diff) override
+            {
+                if (instance->GetBossState(BOSS_MAJORDOMO_EXECUTUS) != DONE)
                 {
-                    case EVENT_MAGIC_REFLECTION:
-                        DoCast(me, SPELL_MAGIC_REFLECTION);
-                        events.ScheduleEvent(EVENT_MAGIC_REFLECTION, 30s);
-                        break;
-                    case EVENT_DAMAGE_REFLECTION:
-                        DoCast(me, SPELL_DAMAGE_REFLECTION);
-                        events.ScheduleEvent(EVENT_DAMAGE_REFLECTION, 30s);
-                        break;
-                    case EVENT_BLAST_WAVE:
-                        DoCastVictim(SPELL_BLAST_WAVE);
-                        events.ScheduleEvent(EVENT_BLAST_WAVE, 10s);
-                        break;
-                    case EVENT_TELEPORT:
-                        if (Unit* target = SelectTarget(SelectTargetMethod::Random, 1))
-                            DoCast(target, SPELL_TELEPORT);
-                        events.ScheduleEvent(EVENT_TELEPORT, 20s);
-                        break;
-                    default:
-                        break;
+                    if (!UpdateVictim())
+                        return;
+
+                    events.Update(diff);
+
+                    if (!me->FindNearestCreature(NPC_FLAMEWAKER_HEALER, 100.0f) && !me->FindNearestCreature(NPC_FLAMEWAKER_ELITE, 100.0f))
+                    {
+                        instance->UpdateEncounterStateForKilledCreature(me->GetEntry(), me);
+                        me->SetFaction(FACTION_FRIENDLY);
+                        EnterEvadeMode();
+                        Talk(SAY_DEFEAT);
+                        _JustDied();
+                        events.ScheduleEvent(EVENT_OUTRO_1, 32000);
+                        return;
+                    }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
+
+                    if (HealthBelowPct(50))
+                        DoCast(me, SPELL_AEGIS_OF_RAGNAROS, true);
+
+                    while (uint32 eventId = events.ExecuteEvent())
+                    {
+                        switch (eventId)
+                        {
+                            case EVENT_MAGIC_REFLECTION:
+                                DoCast(me, SPELL_MAGIC_REFLECTION);
+                                events.ScheduleEvent(EVENT_MAGIC_REFLECTION, 30000);
+                                break;
+                            case EVENT_DAMAGE_REFLECTION:
+                                DoCast(me, SPELL_DAMAGE_REFLECTION);
+                                events.ScheduleEvent(EVENT_DAMAGE_REFLECTION, 30000);
+                                break;
+                            case EVENT_BLAST_WAVE:
+                                DoCastVictim(SPELL_BLAST_WAVE);
+                                events.ScheduleEvent(EVENT_BLAST_WAVE, 10000);
+                                break;
+                            case EVENT_TELEPORT:
+                                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1))
+                                    DoCast(target, SPELL_TELEPORT);
+                                events.ScheduleEvent(EVENT_TELEPORT, 20000);
+                                break;
+                            default:
+                                break;
+                        }
+
+                        if (me->HasUnitState(UNIT_STATE_CASTING))
+                            return;
+                    }
+
+                    DoMeleeAttackIfReady();
                 }
-
-                if (me->HasUnitState(UNIT_STATE_CASTING))
-                    return;
-            }
-
-            DoMeleeAttackIfReady();
-        }
-        else
-        {
-            events.Update(diff);
-
-            while (uint32 eventId = events.ExecuteEvent())
-            {
-                switch (eventId)
+                else
                 {
-                    case EVENT_OUTRO_1:
-                        me->NearTeleportTo(RagnarosTelePos.GetPositionX(), RagnarosTelePos.GetPositionY(), RagnarosTelePos.GetPositionZ(), RagnarosTelePos.GetOrientation());
-                        me->SetNpcFlag(UNIT_NPC_FLAG_GOSSIP);
-                        break;
-                    case EVENT_OUTRO_2:
-                        instance->instance->SummonCreature(NPC_RAGNAROS, RagnarosSummonPos);
-                        break;
-                    case EVENT_OUTRO_3:
-                        Talk(SAY_ARRIVAL2_MAJ);
-                        break;
-                    default:
-                        break;
+                    events.Update(diff);
+
+                    while (uint32 eventId = events.ExecuteEvent())
+                    {
+                        switch (eventId)
+                        {
+                            case EVENT_OUTRO_1:
+                                me->NearTeleportTo(RagnarosTelePos.GetPositionX(), RagnarosTelePos.GetPositionY(), RagnarosTelePos.GetPositionZ(), RagnarosTelePos.GetOrientation());
+                                me->AddNpcFlag(UNIT_NPC_FLAG_GOSSIP);
+                                break;
+                            case EVENT_OUTRO_2:
+                                instance->instance->SummonCreature(NPC_RAGNAROS, RagnarosSummonPos);
+                                break;
+                            case EVENT_OUTRO_3:
+                                Talk(SAY_ARRIVAL2_MAJ);
+                                break;
+                            default:
+                                break;
+                        }
+                    }
                 }
             }
-        }
-    }
 
-    void DoAction(int32 action) override
-    {
-        if (action == ACTION_START_RAGNAROS)
-        {
-            me->RemoveNpcFlag(UNIT_NPC_FLAG_GOSSIP);
-            Talk(SAY_SUMMON_MAJ);
-            events.ScheduleEvent(EVENT_OUTRO_2, 8s);
-            events.ScheduleEvent(EVENT_OUTRO_3, 24s);
-        }
-        else if (action == ACTION_START_RAGNAROS_ALT)
-        {
-            me->SetFaction(FACTION_FRIENDLY);
-            me->SetNpcFlag(UNIT_NPC_FLAG_GOSSIP);
-        }
-    }
+            void DoAction(int32 action) override
+            {
+                if (action == ACTION_START_RAGNAROS)
+                {
+                    me->RemoveNpcFlag(UNIT_NPC_FLAG_GOSSIP);
+                    Talk(SAY_SUMMON_MAJ);
+                    events.ScheduleEvent(EVENT_OUTRO_2, 8000);
+                    events.ScheduleEvent(EVENT_OUTRO_3, 24000);
+                }
+                else if (action == ACTION_START_RAGNAROS_ALT)
+                {
+                    me->SetFaction(FACTION_FRIENDLY);
+                    me->AddNpcFlag(UNIT_NPC_FLAG_GOSSIP);
+                }
+            }
 
-    bool OnGossipSelect(Player* player, uint32 menuId, uint32 gossipListId) override
-    {
-        if (menuId == MENU_OPTION_YOU_CHALLENGED_US && gossipListId == OPTION_ID_YOU_CHALLENGED_US)
+            void sGossipSelect(Player* player, uint32 menuId, uint32 gossipListId) override
+            {
+                if (menuId == MENU_OPTION_YOU_CHALLENGED_US && gossipListId == OPTION_ID_YOU_CHALLENGED_US)
+                {
+                    CloseGossipMenuFor(player);
+                    DoAction(ACTION_START_RAGNAROS);
+                }
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const override
         {
-            CloseGossipMenuFor(player);
-            DoAction(ACTION_START_RAGNAROS);
+            return GetMoltenCoreAI<boss_majordomoAI>(creature);
         }
-        return false;
-    }
 };
 
 void AddSC_boss_majordomo()
 {
-    RegisterMoltenCoreCreatureAI(boss_majordomo);
+    new boss_majordomo();
 }

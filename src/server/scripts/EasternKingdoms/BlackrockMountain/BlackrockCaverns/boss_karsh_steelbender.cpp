@@ -1,5 +1,5 @@
 /*
- * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
+ * Copyright (C) 2022 BfaCore Reforged
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -42,6 +42,11 @@ enum Events
     EVENT_SUPERHEATED_QUICKSILVER_ARMOR = 3
 };
 
+enum Achieve
+{
+    STACKEDISDONE
+};
+
 class boss_karsh_steelbender : public CreatureScript
 {
     public:
@@ -56,11 +61,11 @@ class boss_karsh_steelbender : public CreatureScript
                 _Reset();
             }
 
-            void JustEngagedWith(Unit* who) override
+            void EnterCombat(Unit* /*who*/) override
             {
-                BossAI::JustEngagedWith(who);
+                _EnterCombat();
                 Talk(YELL_AGGRO);
-                events.ScheduleEvent(EVENT_CLEAVE, 10s);
+                events.ScheduleEvent(EVENT_CLEAVE, 10000);
             }
 
             void KilledUnit(Unit* who) override
@@ -91,7 +96,7 @@ class boss_karsh_steelbender : public CreatureScript
                     {
                         case EVENT_CLEAVE:
                             DoCastVictim(SPELL_CLEAVE);
-                            events.ScheduleEvent(EVENT_CLEAVE, 10s);
+                            events.ScheduleEvent(EVENT_CLEAVE, 10000);
                             break;
                         default:
                             break;
@@ -108,7 +113,26 @@ class boss_karsh_steelbender : public CreatureScript
         }
 };
 
+class achievement_too_hot_to_handle : public AchievementCriteriaScript
+{
+public:
+    achievement_too_hot_to_handle() : AchievementCriteriaScript("achievement_too_hot_to_handle") {}
+
+    bool OnCheck(Player* /*player*/, Unit* target) override
+    {
+        if (!target)
+            return false;
+
+        if (auto karsh = target->ToCreature())
+            if (karsh->AI()->GetData(STACKEDISDONE))
+                return true;
+
+        return false;
+    }
+};
+
 void AddSC_boss_karsh_steelbender()
 {
     new boss_karsh_steelbender();
+    new achievement_too_hot_to_handle();
 }
